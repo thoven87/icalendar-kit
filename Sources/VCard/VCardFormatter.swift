@@ -407,7 +407,7 @@ internal struct VCardFormatter {
 
     static func isValidEmail(_ email: String) -> Bool {
         let emailRegex = "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"
-        return NSPredicate(format: "SELF MATCHES %@", emailRegex).evaluate(with: email)
+        return email.range(of: emailRegex, options: .regularExpression) != nil
     }
 
     static func isValidTelephone(_ telephone: String) -> Bool {
@@ -418,16 +418,15 @@ internal struct VCardFormatter {
     // MARK: - Language Tag Validation
 
     static func isValidLanguageTag(_ tag: String) -> Bool {
-        // Basic validation for language tags (RFC-5646)
         let languageRegex = "^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$"
-        return NSPredicate(format: "SELF MATCHES %@", languageRegex).evaluate(with: tag)
+        return tag.range(of: languageRegex, options: .regularExpression) != nil
     }
 
     // MARK: - Media Type Validation
 
     static func isValidMediaType(_ mediaType: String) -> Bool {
         let mediaTypeRegex = "^[a-zA-Z][a-zA-Z0-9]*\\/[a-zA-Z0-9][a-zA-Z0-9!#$&\\-\\^_]*$"
-        return NSPredicate(format: "SELF MATCHES %@", mediaTypeRegex).evaluate(with: mediaType)
+        return mediaType.range(of: mediaTypeRegex, options: .regularExpression) != nil
     }
 
     // MARK: - Structured Value Helpers
