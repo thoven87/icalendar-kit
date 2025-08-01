@@ -46,50 +46,50 @@ public struct VCardClient: Sendable {
     // MARK: - Parsing Operations
 
     /// Parse vCard content from string
-    public func parseVCard(from content: String) async throws -> VCard {
+    public func parseVCard(from content: String) throws -> VCard {
         let parser = VCardParser()
 
         if configuration.validateOnParse {
-            return try await parser.parseAndValidate(content)
+            return try parser.parseAndValidate(content)
         } else {
-            return try await parser.parse(content)
+            return try parser.parse(content)
         }
     }
 
     /// Parse vCard content from data
-    public func parseVCard(from data: Data) async throws -> VCard {
+    public func parseVCard(from data: Data) throws -> VCard {
         let parser = VCardParser()
 
         if configuration.validateOnParse {
-            let vcard = try await parser.parse(data)
-            try await parser.validate(vcard)
+            let vcard = try parser.parse(data)
+            try parser.validate(vcard)
             return vcard
         } else {
-            return try await parser.parse(data)
+            return try parser.parse(data)
         }
     }
 
     /// Parse vCard file from URL
-    public func parseVCard(from url: URL) async throws -> VCard {
+    public func parseVCard(from url: URL) throws -> VCard {
         let parser = VCardParser()
 
         if configuration.validateOnParse {
-            let vcard = try await parser.parseFile(at: url)
-            try await parser.validate(vcard)
+            let vcard = try parser.parseFile(at: url)
+            try parser.validate(vcard)
             return vcard
         } else {
-            return try await parser.parseFile(at: url)
+            return try parser.parseFile(at: url)
         }
     }
 
     /// Parse multiple vCards from content
-    public func parseVCards(from content: String) async throws -> [VCard] {
+    public func parseVCards(from content: String) throws -> [VCard] {
         let parser = VCardParser()
-        let vcards = try await parser.parseMultiple(content)
+        let vcards = try parser.parseMultiple(content)
 
         if configuration.validateOnParse {
             for vcard in vcards {
-                try await parser.validate(vcard)
+                try parser.validate(vcard)
             }
         }
 
@@ -99,47 +99,47 @@ public struct VCardClient: Sendable {
     // MARK: - Serialization Operations
 
     /// Serialize vCard to string
-    public func serializeVCard(_ vcard: VCard) async throws -> String {
+    public func serializeVCard(_ vcard: VCard) throws -> String {
         let serializer = VCardSerializer(
             options: VCardSerializer.SerializationOptions(
                 validateBeforeSerializing: configuration.validateOnSerialize,
                 version: configuration.defaultVersion
             )
         )
-        return try await serializer.serialize(vcard)
+        return try serializer.serialize(vcard)
     }
 
     /// Serialize vCard to data
-    public func serializeVCard(_ vcard: VCard) async throws -> Data {
+    public func serializeVCard(_ vcard: VCard) throws -> Data {
         let serializer = VCardSerializer(
             options: VCardSerializer.SerializationOptions(
                 validateBeforeSerializing: configuration.validateOnSerialize,
                 version: configuration.defaultVersion
             )
         )
-        return try await serializer.serializeToData(vcard)
+        return try serializer.serializeToData(vcard)
     }
 
     /// Serialize vCard to file
-    public func serializeVCard(_ vcard: VCard, to url: URL) async throws {
+    public func serializeVCard(_ vcard: VCard, to url: URL) throws {
         let serializer = VCardSerializer(
             options: VCardSerializer.SerializationOptions(
                 validateBeforeSerializing: configuration.validateOnSerialize,
                 version: configuration.defaultVersion
             )
         )
-        try await serializer.serializeToFile(vcard, url: url)
+        try serializer.serializeToFile(vcard, url: url)
     }
 
     /// Serialize multiple vCards
-    public func serializeVCards(_ vcards: [VCard]) async throws -> String {
+    public func serializeVCards(_ vcards: [VCard]) throws -> String {
         let serializer = VCardSerializer(
             options: VCardSerializer.SerializationOptions(
                 validateBeforeSerializing: configuration.validateOnSerialize,
                 version: configuration.defaultVersion
             )
         )
-        return try await serializer.serialize(vcards)
+        return try serializer.serialize(vcards)
     }
 
     // MARK: - vCard Creation
@@ -377,15 +377,15 @@ public struct VCardClient: Sendable {
     // MARK: - Utility Operations
 
     /// Validate a vCard
-    public func validateVCard(_ vcard: VCard) async throws {
+    public func validateVCard(_ vcard: VCard) throws {
         let parser = VCardParser()
-        try await parser.validate(vcard)
+        try parser.validate(vcard)
     }
 
     /// Get vCard statistics
-    public func getVCardStatistics(_ vcard: VCard) async -> VCardStatistics {
+    public func getVCardStatistics(_ vcard: VCard) -> VCardStatistics {
         let parser = VCardParser()
-        return await parser.getStatistics(vcard)
+        return parser.getStatistics(vcard)
     }
 
     /// Find contacts by name
@@ -524,30 +524,30 @@ public struct VCardClient: Sendable {
     public func exportVCards(
         _ vcards: [VCard],
         format: ExportFormat
-    ) async throws -> String {
+    ) throws -> String {
         let serializer = VCardSerializer()
 
         switch format {
         case .standard:
-            return try await serializer.serialize(vcards)
+            return try serializer.serialize(vcards)
         case .apple:
             var results: [String] = []
             for vcard in vcards {
-                let result = await serializer.serializeForApple(vcard)
+                let result = serializer.serializeForApple(vcard)
                 results.append(result)
             }
             return results.joined(separator: "\r\n")
         case .google:
             var results: [String] = []
             for vcard in vcards {
-                let result = await serializer.serializeForGoogle(vcard)
+                let result = serializer.serializeForGoogle(vcard)
                 results.append(result)
             }
             return results.joined(separator: "\r\n")
         case .outlook:
             var results: [String] = []
             for vcard in vcards {
-                let result = await serializer.serializeForOutlook(vcard)
+                let result = serializer.serializeForOutlook(vcard)
                 results.append(result)
             }
             return results.joined(separator: "\r\n")
@@ -567,15 +567,15 @@ public struct VCardClient: Sendable {
 extension VCardClient {
 
     /// Quick parse from string
-    public static func parse(_ content: String) async throws -> VCard {
+    public static func parse(_ content: String) throws -> VCard {
         let client = VCardClient()
-        return try await client.parseVCard(from: content)
+        return try client.parseVCard(from: content)
     }
 
     /// Quick serialize to string
-    public static func serialize(_ vcard: VCard) async throws -> String {
+    public static func serialize(_ vcard: VCard) throws -> String {
         let client = VCardClient()
-        return try await client.serializeVCard(vcard)
+        return try client.serializeVCard(vcard)
     }
 
     /// Create a simple contact card

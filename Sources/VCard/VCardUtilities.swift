@@ -541,7 +541,7 @@ public struct VCardValidationUtilities {
 
 public struct VCardIOUtilities {
     /// Extract vCards from a directory of .vcf files
-    public static func extractVCardsFromDirectory(at url: URL) async throws -> [VCard] {
+    public static func extractVCardsFromDirectory(at url: URL) throws -> [VCard] {
         let fileManager = FileManager.default
         let client = VCardClient()
         var allVCards: [VCard] = []
@@ -551,7 +551,7 @@ public struct VCardIOUtilities {
 
         for file in vcfFiles {
             do {
-                let vcards = try await client.parseVCards(from: String(contentsOf: file, encoding: .utf8))
+                let vcards = try client.parseVCards(from: String(contentsOf: file, encoding: .utf8))
                 allVCards.append(contentsOf: vcards)
             } catch {
                 // Continue with other files even if one fails
@@ -563,7 +563,7 @@ public struct VCardIOUtilities {
     }
 
     /// Export vCards to individual files
-    public static func exportVCardsToFiles(_ vcards: [VCard], directory: URL) async throws {
+    public static func exportVCardsToFiles(_ vcards: [VCard], directory: URL) throws {
         let fileManager = FileManager.default
         let client = VCardClient()
 
@@ -574,14 +574,14 @@ public struct VCardIOUtilities {
             let fileName = vcard.formattedName?.replacingOccurrences(of: " ", with: "_") ?? "contact_\(index)"
             let fileURL = directory.appendingPathComponent("\(fileName).vcf")
 
-            try await client.serializeVCard(vcard, to: fileURL)
+            try client.serializeVCard(vcard, to: fileURL)
         }
     }
 
     /// Backup vCards to a single file
-    public static func backupVCards(_ vcards: [VCard], to url: URL) async throws {
+    public static func backupVCards(_ vcards: [VCard], to url: URL) throws {
         let client = VCardClient()
-        let allVCardsContent = try await client.serializeVCards(vcards)
+        let allVCardsContent = try client.serializeVCards(vcards)
         try allVCardsContent.write(to: url, atomically: true, encoding: .utf8)
     }
 }

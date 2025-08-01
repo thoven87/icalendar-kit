@@ -1,7 +1,7 @@
 import Foundation
 
 /// Parser for vCard content following RFC-6350 specifications with Swift 6 structured concurrency
-public actor VCardParser: Sendable {
+public struct VCardParser: Sendable {
 
     // MARK: - Parsing State
 
@@ -13,23 +13,23 @@ public actor VCardParser: Sendable {
     // MARK: - Public Interface
 
     /// Parse vCard content from string
-    public func parse(_ content: String) async throws -> VCard {
+    public func parse(_ content: String) throws -> VCard {
         let lines = preprocessLines(content)
-        return try await parseLines(lines)
+        return try parseLines(lines)
     }
 
     /// Parse vCard content from data
-    public func parse(_ data: Data) async throws -> VCard {
+    public func parse(_ data: Data) throws -> VCard {
         guard let content = String(data: data, encoding: .utf8) else {
             throw VCardError.decodingError("Unable to decode data as UTF-8")
         }
-        return try await parse(content)
+        return try parse(content)
     }
 
     /// Parse vCard file from URL
-    public func parseFile(at url: URL) async throws -> VCard {
+    public func parseFile(at url: URL) throws -> VCard {
         let data = try Data(contentsOf: url)
-        return try await parse(data)
+        return try parse(data)
     }
 
     // MARK: - Line Preprocessing
@@ -46,7 +46,7 @@ public actor VCardParser: Sendable {
 
     // MARK: - Core Parsing Logic
 
-    private func parseLines(_ lines: [String]) async throws -> VCard {
+    private func parseLines(_ lines: [String]) throws -> VCard {
         var vcard: VCard?
         var currentProperties: [VCardProperty] = []
         var state: ParsingState = .idle
@@ -102,7 +102,7 @@ public actor VCardParser: Sendable {
     // MARK: - Validation
 
     /// Validate parsed vCard for RFC compliance
-    public func validate(_ vcard: VCard) async throws {
+    public func validate(_ vcard: VCard) throws {
         // Check required properties
         guard vcard.version == .v4_0 || vcard.version == .v3_0 else {
             throw VCardError.invalidVersion("Unsupported version: \(vcard.version.rawValue)")
@@ -113,10 +113,10 @@ public actor VCardParser: Sendable {
         }
 
         // Validate property values
-        try await validateProperties(vcard)
+        try validateProperties(vcard)
     }
 
-    private func validateProperties(_ vcard: VCard) async throws {
+    private func validateProperties(_ vcard: VCard) throws {
         // Validate email addresses
         for email in vcard.emails {
             guard VCardFormatter.isValidEmail(email.value) else {
@@ -201,7 +201,7 @@ public actor VCardParser: Sendable {
     // MARK: - Multiple vCard Parsing
 
     /// Parse multiple vCards from a string containing multiple VCARD objects
-    public func parseMultiple(_ content: String) async throws -> [VCard] {
+    public func parseMultiple(_ content: String) throws -> [VCard] {
         let lines = preprocessLines(content)
         var vcards: [VCard] = []
         var currentVCardLines: [String] = []
@@ -217,7 +217,7 @@ public actor VCardParser: Sendable {
             } else if line.hasPrefix("END:VCARD") {
                 currentVCardLines.append(line)
 
-                let vcard = try await parseLines(currentVCardLines)
+                let vcard = try parseLines(currentVCardLines)
                 vcards.append(vcard)
                 currentVCardLines = []
                 inVCard = false
@@ -238,16 +238,16 @@ public actor VCardParser: Sendable {
     // MARK: - Convenience Extensions
 
     /// Parse and validate in one operation
-    public func parseAndValidate(_ content: String) async throws -> VCard {
-        let vcard = try await parse(content)
-        try await validate(vcard)
+    public func parseAndValidate(_ content: String) throws -> VCard {
+        let vcard = try parse(content)
+        try validate(vcard)
         return vcard
     }
 
     /// Parse with custom validation
-    public func parse(_ content: String, customValidation: @Sendable (VCard) async throws -> Void) async throws -> VCard {
-        let vcard = try await parse(content)
-        try await customValidation(vcard)
+    public func parse(_ content: String, customValidation: @Sendable (VCard) throws -> Void) throws -> VCard {
+        let vcard = try parse(content)
+        try customValidation(vcard)
         return vcard
     }
 
@@ -279,7 +279,7 @@ public actor VCardParser: Sendable {
     // MARK: - Statistics and Analysis
 
     /// Get parsing statistics for a vCard
-    public func getStatistics(_ vcard: VCard) async -> VCardStatistics {
+    public func getStatistics(_ vcard: VCard) -> VCardStatistics {
         let propertyCount = vcard.properties.count
         let emailCount = vcard.emails.count
         let telephoneCount = vcard.telephones.count

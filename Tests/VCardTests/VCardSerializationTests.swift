@@ -4,12 +4,12 @@ import Testing
 @testable import VCard
 
 @Test("Basic vCard Serialization")
-func testBasicVCardSerialization() async throws {
+func testBasicVCardSerialization() throws {
     let client = VCardClient()
     let vcard = client.createVCard(formattedName: "Test User")
 
     let serializer = VCardSerializer()
-    let serialized = try await serializer.serialize(vcard)
+    let serialized = try serializer.serialize(vcard)
 
     #expect(serialized.contains("BEGIN:VCARD"))
     #expect(serialized.contains("END:VCARD"))
@@ -19,7 +19,7 @@ func testBasicVCardSerialization() async throws {
 }
 
 @Test("vCard Serialization with All Properties")
-func testCompleteVCardSerialization() async throws {
+func testCompleteVCardSerialization() throws {
     let client = VCardClient()
     var vcard = client.createPersonVCard(
         formattedName: "John William Smith",
@@ -48,7 +48,7 @@ func testCompleteVCardSerialization() async throws {
     client.addAddress(to: &vcard, address: address, types: [.work])
 
     let serializer = VCardSerializer()
-    let serialized = try await serializer.serialize(vcard)
+    let serialized = try serializer.serialize(vcard)
 
     #expect(serialized.contains("FN:John William Smith"))
     #expect(serialized.contains("N:Smith;John;William;;"))
@@ -64,7 +64,7 @@ func testCompleteVCardSerialization() async throws {
 }
 
 @Test("Multiple vCard Serialization")
-func testMultipleVCardSerialization() async throws {
+func testMultipleVCardSerialization() throws {
     let client = VCardClient()
     let vcards = [
         client.createVCard(formattedName: "John Doe"),
@@ -72,7 +72,7 @@ func testMultipleVCardSerialization() async throws {
     ]
 
     let serializer = VCardSerializer()
-    let serialized = try await serializer.serialize(vcards)
+    let serialized = try serializer.serialize(vcards)
 
     let beginCount = serialized.components(separatedBy: "BEGIN:VCARD").count - 1
     let endCount = serialized.components(separatedBy: "END:VCARD").count - 1
@@ -84,21 +84,21 @@ func testMultipleVCardSerialization() async throws {
 }
 
 @Test("vCard Version Specific Serialization")
-func testVersionSpecificSerialization() async throws {
+func testVersionSpecificSerialization() throws {
     let client = VCardClient()
     let vcard = client.createVCard(formattedName: "Version Test")
 
     let serializer = VCardSerializer()
 
-    let v3Serialized = try await serializer.serialize(vcard, version: .v3_0)
+    let v3Serialized = try serializer.serialize(vcard, version: .v3_0)
     #expect(v3Serialized.contains("VERSION:3.0"))
 
-    let v4Serialized = try await serializer.serialize(vcard, version: .v4_0)
+    let v4Serialized = try serializer.serialize(vcard, version: .v4_0)
     #expect(v4Serialized.contains("VERSION:4.0"))
 }
 
 @Test("Minimal vCard Serialization")
-func testMinimalVCardSerialization() async throws {
+func testMinimalVCardSerialization() throws {
     let client = VCardClient()
     var vcard = client.createVCard(formattedName: "Minimal Test")
 
@@ -106,7 +106,7 @@ func testMinimalVCardSerialization() async throws {
     vcard.categories = ["Optional"]
 
     let serializer = VCardSerializer()
-    let minimal = try await serializer.serializeMinimal(vcard)
+    let minimal = try serializer.serializeMinimal(vcard)
 
     #expect(minimal.contains("FN:Minimal Test"))
     #expect(minimal.contains("VERSION:4.0"))
@@ -115,7 +115,7 @@ func testMinimalVCardSerialization() async throws {
 }
 
 @Test("Apple Contacts Compatibility Serialization")
-func testAppleContactsSerialization() async throws {
+func testAppleContactsSerialization() throws {
     let client = VCardClient()
     var vcard = client.createPersonVCard(
         formattedName: "Apple Test",
@@ -128,7 +128,7 @@ func testAppleContactsSerialization() async throws {
     client.addTelephone(to: &vcard, number: "+1-408-996-1010", types: [.work])
 
     let serializer = VCardSerializer()
-    let appleSerialized = await serializer.serializeForApple(vcard)
+    let appleSerialized = serializer.serializeForApple(vcard)
 
     #expect(appleSerialized.contains("VERSION:3.0"))
     #expect(appleSerialized.contains("FN:Apple Test"))
@@ -138,7 +138,7 @@ func testAppleContactsSerialization() async throws {
 }
 
 @Test("Google Contacts Compatibility Serialization")
-func testGoogleContactsSerialization() async throws {
+func testGoogleContactsSerialization() throws {
     let client = VCardClient()
     var vcard = client.createPersonVCard(
         formattedName: "Google Test",
@@ -150,7 +150,7 @@ func testGoogleContactsSerialization() async throws {
     client.addTelephone(to: &vcard, number: "+1-650-253-0000", types: [.work])
 
     let serializer = VCardSerializer()
-    let googleSerialized = await serializer.serializeForGoogle(vcard)
+    let googleSerialized = serializer.serializeForGoogle(vcard)
 
     #expect(googleSerialized.contains("VERSION:3.0"))
     #expect(googleSerialized.contains("FN:Google Test"))
@@ -158,7 +158,7 @@ func testGoogleContactsSerialization() async throws {
 }
 
 @Test("Outlook Compatibility Serialization")
-func testOutlookSerialization() async throws {
+func testOutlookSerialization() throws {
     let client = VCardClient()
     var vcard = client.createPersonVCard(
         formattedName: "Outlook Test",
@@ -169,38 +169,38 @@ func testOutlookSerialization() async throws {
     client.addEmail(to: &vcard, email: "test@outlook.com", types: [.work])
 
     let serializer = VCardSerializer()
-    let outlookSerialized = await serializer.serializeForOutlook(vcard)
+    let outlookSerialized = serializer.serializeForOutlook(vcard)
 
     #expect(outlookSerialized.contains("VERSION:2.1"))
     #expect(outlookSerialized.contains("FN:Outlook Test"))
 }
 
 @Test("Pretty Print Serialization")
-func testPrettyPrintSerialization() async throws {
+func testPrettyPrintSerialization() throws {
     let client = VCardClient()
     let vcard = client.createVCard(formattedName: "Pretty Test")
 
     let serializer = VCardSerializer()
-    let pretty = await serializer.serializePretty(vcard)
+    let pretty = serializer.serializePretty(vcard)
 
     #expect(pretty.contains("FN:Pretty Test"))
     #expect(pretty.contains("VERSION:4.0"))
 }
 
 @Test("Serialization with Custom Line Ending")
-func testCustomLineEndingSerialization() async throws {
+func testCustomLineEndingSerialization() throws {
     let client = VCardClient()
     let vcard = client.createVCard(formattedName: "Line Ending Test")
 
     let serializer = VCardSerializer()
-    let unixStyle = try await serializer.serialize(vcard, lineEnding: "\n")
+    let unixStyle = try serializer.serialize(vcard, lineEnding: "\n")
 
     #expect(unixStyle.contains("\n"))
     #expect(!unixStyle.contains("\r\n"))
 }
 
 @Test("Serialization Options")
-func testSerializationOptions() async throws {
+func testSerializationOptions() throws {
     let client = VCardClient()
     var vcard = client.createVCard(formattedName: "Options Test")
 
@@ -209,17 +209,17 @@ func testSerializationOptions() async throws {
 
     let compactOptions = VCardSerializer.SerializationOptions.compact
     let compactSerializer = VCardSerializer(options: compactOptions)
-    let compactSerialized = try await compactSerializer.serialize(vcard)
+    let compactSerialized = try compactSerializer.serialize(vcard)
 
     let defaultOptions = VCardSerializer.SerializationOptions.default
     let defaultSerializer = VCardSerializer(options: defaultOptions)
-    let defaultSerialized = try await defaultSerializer.serialize(vcard)
+    let defaultSerialized = try defaultSerializer.serialize(vcard)
 
     #expect(compactSerialized.count <= defaultSerialized.count)
 }
 
 @Test("Serialization with Validation")
-func testSerializationWithValidation() async throws {
+func testSerializationWithValidation() throws {
     let client = VCardClient()
     let vcard = client.createVCard(formattedName: "Validation Test")
 
@@ -229,12 +229,12 @@ func testSerializationWithValidation() async throws {
     let serializer = VCardSerializer(options: validatingOptions)
 
     // Should not throw for valid vCard
-    let serialized = try await serializer.serialize(vcard)
+    let serialized = try serializer.serialize(vcard)
     #expect(serialized.contains("FN:Validation Test"))
 }
 
 @Test("Property Sorting in Serialization")
-func testPropertySortingSerialization() async throws {
+func testPropertySortingSerialization() throws {
     let client = VCardClient()
     var vcard = client.createVCard(formattedName: "Sort Test")
 
@@ -244,38 +244,38 @@ func testPropertySortingSerialization() async throws {
 
     let sortedOptions = VCardSerializer.SerializationOptions(sortProperties: true)
     let sortedSerializer = VCardSerializer(options: sortedOptions)
-    let sortedSerialized = try await sortedSerializer.serialize(vcard)
+    let sortedSerialized = try sortedSerializer.serialize(vcard)
 
     let unsortedOptions = VCardSerializer.SerializationOptions(sortProperties: false)
     let unsortedSerializer = VCardSerializer(options: unsortedOptions)
-    let unsortedSerialized = try await unsortedSerializer.serialize(vcard)
+    let unsortedSerialized = try unsortedSerializer.serialize(vcard)
 
     #expect(sortedSerialized.contains("EMAIL:"))
     #expect(unsortedSerialized.contains("EMAIL:"))
 }
 
 @Test("Line Folding in Serialization")
-func testLineFoldingSerialization() async throws {
+func testLineFoldingSerialization() throws {
     let client = VCardClient()
     var vcard = client.createVCard(formattedName: "Line Folding Test")
 
     vcard.note = String(repeating: "This is a very long note that should be folded when serialized. ", count: 5)
 
     let serializer = VCardSerializer()
-    let serialized = try await serializer.serialize(vcard)
+    let serialized = try serializer.serialize(vcard)
 
     #expect(serialized.contains("\r\n "))
 }
 
 @Test("Escaping in Serialization")
-func testEscapingSerialization() async throws {
+func testEscapingSerialization() throws {
     let client = VCardClient()
     var vcard = client.createVCard(formattedName: "Escape Test")
 
     vcard.note = "This has; semicolons, commas\nand newlines\r\nand backslashes\\"
 
     let serializer = VCardSerializer()
-    let serialized = try await serializer.serialize(vcard)
+    let serialized = try serializer.serialize(vcard)
 
     #expect(serialized.contains("\\;"))
     #expect(serialized.contains("\\,"))
@@ -284,7 +284,7 @@ func testEscapingSerialization() async throws {
 }
 
 @Test("Parameter Escaping in Serialization")
-func testParameterEscapingSerialization() async throws {
+func testParameterEscapingSerialization() throws {
     let client = VCardClient()
     var vcard = client.createVCard(formattedName: "Parameter Test")
 
@@ -292,13 +292,13 @@ func testParameterEscapingSerialization() async throws {
     client.addAddress(to: &vcard, address: address, label: "Work: Main Office")
 
     let serializer = VCardSerializer()
-    let serialized = try await serializer.serialize(vcard)
+    let serialized = try serializer.serialize(vcard)
 
     #expect(serialized.contains("LABEL=\"Work: Main Office\""))
 }
 
 @Test("Serialization Statistics")
-func testSerializationStatistics() async throws {
+func testSerializationStatistics() throws {
     let client = VCardClient()
     var vcard = client.createPersonVCard(formattedName: "Stats Test")
 
@@ -311,7 +311,7 @@ func testSerializationStatistics() async throws {
     client.addUrl(to: &vcard, url: "https://stats.example.com")
 
     let serializer = VCardSerializer()
-    let stats = await serializer.getStatistics(vcard)
+    let stats = serializer.getStatistics(vcard)
 
     #expect(stats.emailCount == 2)
     #expect(stats.telephoneCount == 1)
@@ -323,20 +323,20 @@ func testSerializationStatistics() async throws {
 }
 
 @Test("Data and File Serialization")
-func testDataAndFileSerialization() async throws {
+func testDataAndFileSerialization() throws {
     let client = VCardClient()
     let vcard = client.createVCard(formattedName: "File Test")
 
     let serializer = VCardSerializer()
 
     // Test data serialization
-    let data = try await serializer.serializeToData(vcard)
+    let data = try serializer.serializeToData(vcard)
     let string = String(data: data, encoding: String.Encoding.utf8)
     #expect(string?.contains("FN:File Test") == true)
 
     // Test file serialization
     let tempURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("test.vcf")
-    try await serializer.serializeToFile(vcard, url: tempURL)
+    try serializer.serializeToFile(vcard, url: tempURL)
 
     let fileExists = FileManager.default.fileExists(atPath: tempURL.path)
     #expect(fileExists == true)
@@ -359,7 +359,7 @@ func testConcurrentSerialization() async throws {
         for vcard in vcards {
             group.addTask {
                 do {
-                    let _ = try await serializer.serialize(vcard)
+                    let _ = try serializer.serialize(vcard)
                 } catch {
                     // Handle errors in concurrent context
                 }

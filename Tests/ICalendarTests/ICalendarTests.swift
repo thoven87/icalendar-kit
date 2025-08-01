@@ -4,7 +4,7 @@ import Testing
 @testable import ICalendar
 
 @Test("Basic Calendar Creation")
-func testBasicCalendarCreation() async throws {
+func testBasicCalendarCreation() throws {
     let client = ICalendarClient()
     let calendar = client.createCalendar(productId: "-//Test//EN")
 
@@ -15,7 +15,7 @@ func testBasicCalendarCreation() async throws {
 }
 
 @Test("Event Creation")
-func testEventCreation() async throws {
+func testEventCreation() throws {
     let client = ICalendarClient()
     let startDate = Date()
     let endDate = startDate.addingTimeInterval(3600)  // 1 hour later
@@ -37,7 +37,7 @@ func testEventCreation() async throws {
 }
 
 @Test("Todo Creation")
-func testTodoCreation() async throws {
+func testTodoCreation() throws {
     let client = ICalendarClient()
     let dueDate = Date().addingTimeInterval(86400)  // Tomorrow
 
@@ -56,7 +56,7 @@ func testTodoCreation() async throws {
 }
 
 @Test("Recurrence Rule Creation")
-func testRecurrenceRuleCreation() async throws {
+func testRecurrenceRuleCreation() throws {
     let client = ICalendarClient()
 
     let dailyRule = client.createDailyRecurrence(interval: 1, count: 10)
@@ -76,7 +76,7 @@ func testRecurrenceRuleCreation() async throws {
 }
 
 @Test("Attendee Creation")
-func testAttendeeCreation() async throws {
+func testAttendeeCreation() throws {
     let client = ICalendarClient()
 
     let attendee = client.createAttendee(
@@ -105,7 +105,7 @@ func testAttendeeCreation() async throws {
 }
 
 @Test("Alarm Creation")
-func testAlarmCreation() async throws {
+func testAlarmCreation() throws {
     let client = ICalendarClient()
 
     let displayAlarm = client.createDisplayAlarm(
@@ -128,11 +128,11 @@ func testAlarmCreation() async throws {
 }
 
 @Test("Calendar Serialization")
-func testCalendarSerialization() async throws {
+func testCalendarSerialization() throws {
     let client = ICalendarClient()
     let calendar = client.createCalendar(productId: "-//Test//EN")
 
-    let serialized: String = try await client.serializeCalendar(calendar)
+    let serialized: String = try client.serializeCalendar(calendar)
 
     #expect(serialized.contains("BEGIN:VCALENDAR"))
     #expect(serialized.contains("END:VCALENDAR"))
@@ -141,7 +141,7 @@ func testCalendarSerialization() async throws {
 }
 
 @Test("Calendar Parsing")
-func testCalendarParsing() async throws {
+func testCalendarParsing() throws {
     let client = ICalendarClient()
     let icalString = """
         BEGIN:VCALENDAR
@@ -159,7 +159,7 @@ func testCalendarParsing() async throws {
         END:VCALENDAR
         """
 
-    let calendar = try await client.parseCalendar(from: icalString)
+    let calendar = try client.parseCalendar(from: icalString)
 
     #expect(calendar.version == "2.0")
     #expect(calendar.productId == "-//Test//EN")
@@ -173,7 +173,7 @@ func testCalendarParsing() async throws {
 }
 
 @Test("DateTime Formatting")
-func testDateTimeFormatting() async throws {
+func testDateTimeFormatting() throws {
     let date = Date(timeIntervalSince1970: 1_704_110_400)  // 2024-01-01 12:00:00 UTC
     let dateTime = ICalDateTime(date: date, timeZone: TimeZone(abbreviation: "UTC"))
 
@@ -187,7 +187,7 @@ func testDateTimeFormatting() async throws {
 }
 
 @Test("Duration Formatting")
-func testDurationFormatting() async throws {
+func testDurationFormatting() throws {
     let duration = ICalDuration(days: 1, hours: 2, minutes: 30, seconds: 0)
     let formatted = ICalendarFormatter.format(duration: duration)
     #expect(formatted == "P1DT2H30M")
@@ -201,7 +201,7 @@ func testDurationFormatting() async throws {
 }
 
 @Test("Recurrence Rule Formatting")
-func testRecurrenceRuleFormatting() async throws {
+func testRecurrenceRuleFormatting() throws {
     let rule = ICalRecurrenceRule(
         frequency: .weekly,
         interval: 2,
@@ -224,7 +224,7 @@ func testRecurrenceRuleFormatting() async throws {
 }
 
 @Test("Text Escaping")
-func testTextEscaping() async throws {
+func testTextEscaping() throws {
     let text = "Hello; world,\nThis is a test\r\nwith\\backslash"
     let escaped = ICalendarFormatter.escapeText(text)
     let unescaped = ICalendarFormatter.unescapeText(escaped)
@@ -237,7 +237,7 @@ func testTextEscaping() async throws {
 }
 
 @Test("Meeting Invitation Creation")
-func testMeetingInvitationCreation() async throws {
+func testMeetingInvitationCreation() throws {
     let client = ICalendarClient()
     let startDate = Date()
     let endDate = startDate.addingTimeInterval(3600)
@@ -276,7 +276,7 @@ func testMeetingInvitationCreation() async throws {
 }
 
 @Test("Builder Pattern")
-func testBuilderPattern() async throws {
+func testBuilderPattern() throws {
     let event = ICalEventBuilder(summary: "Builder Test")
         .description("Test event created with builder")
         .location("Test Location")
@@ -294,7 +294,7 @@ func testBuilderPattern() async throws {
 }
 
 @Test("Validation Utilities")
-func testValidationUtilities() async throws {
+func testValidationUtilities() throws {
     #expect(ValidationUtilities.isValidEmail("test@example.com") == true)
     #expect(ValidationUtilities.isValidEmail("invalid-email") == false)
 
@@ -309,7 +309,7 @@ func testValidationUtilities() async throws {
 }
 
 @Test("Recurrence Patterns")
-func testRecurrencePatterns() async throws {
+func testRecurrencePatterns() throws {
     let daily = RecurrencePatterns.daily(count: 7)
     #expect(daily.frequency == .daily)
     #expect(daily.count == 7)
@@ -328,7 +328,7 @@ func testRecurrencePatterns() async throws {
 }
 
 @Test("Date Extensions")
-func testDateExtensions() async throws {
+func testDateExtensions() throws {
     let date = Date()
 
     let dateTime = date.asICalDateTime()
@@ -347,7 +347,7 @@ func testDateExtensions() async throws {
 }
 
 @Test("TimeInterval Extensions")
-func testTimeIntervalExtensions() async throws {
+func testTimeIntervalExtensions() throws {
     let interval: TimeInterval = 3661  // 1 hour, 1 minute, 1 second
     let duration = interval.asICalDuration
 
@@ -361,7 +361,7 @@ func testTimeIntervalExtensions() async throws {
 }
 
 @Test("Array Extensions")
-func testArrayExtensions() async throws {
+func testArrayExtensions() throws {
     let client = ICalendarClient()
     let startDate = Date()
     let events = [
@@ -389,37 +389,6 @@ func testArrayExtensions() async throws {
     let sortedEvents = events.sortedByStartDate
     #expect(sortedEvents.first?.summary == "Event 1")
     #expect(sortedEvents.last?.summary == "Event 3")
-}
-
-@Test("Sendable Conformance")
-func testSendableConformance() async throws {
-    // Test that all main types conform to Sendable
-    let calendar = ICalendar(productId: "-//Test//EN")
-    let event = ICalEvent(summary: "Test")
-    let todo = ICalTodo(summary: "Test Todo")
-    let attendee = ICalAttendee(email: "test@example.com")
-
-    // These should compile without warnings in Swift 6
-    Task {
-        let _ = calendar
-        let _ = event
-        let _ = todo
-        let _ = attendee
-    }
-
-    // Test structured concurrency with actors
-    let parser = ICalendarParser()
-    let serializer = ICalendarSerializer()
-
-    async let parsedCalendar = parser.parse(
-        "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nEND:VCALENDAR"
-    )
-    async let serializedCalendar = serializer.serialize(calendar)
-
-    let _ = try await parsedCalendar
-    let _ = try await serializedCalendar
-
-    #expect(Bool(true))  // If we reach here, Sendable conformance is working
 }
 
 // MARK: - Helper Functions

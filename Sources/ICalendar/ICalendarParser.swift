@@ -1,7 +1,7 @@
 import Foundation
 
 /// Parser for iCalendar content following RFC 5545 specifications with Swift 6 structured concurrency
-public actor ICalendarParser: Sendable {
+public struct ICalendarParser: Sendable {
 
     // MARK: - Parsing State
 
@@ -14,23 +14,23 @@ public actor ICalendarParser: Sendable {
     // MARK: - Public Interface
 
     /// Parse iCalendar content from string
-    public func parse(_ content: String) async throws -> ICalendar {
+    public func parse(_ content: String) throws -> ICalendar {
         let lines = preprocessLines(content)
-        return try await parseLines(lines)
+        return try parseLines(lines)
     }
 
     /// Parse iCalendar content from data
-    public func parse(_ data: Data) async throws -> ICalendar {
+    public func parse(_ data: Data) throws -> ICalendar {
         guard let content = String(data: data, encoding: .utf8) else {
             throw ICalendarError.decodingError("Unable to decode data as UTF-8")
         }
-        return try await parse(content)
+        return try parse(content)
     }
 
     /// Parse iCalendar file from URL
-    public func parseFile(at url: URL) async throws -> ICalendar {
+    public func parseFile(at url: URL) throws -> ICalendar {
         let data = try Data(contentsOf: url)
-        return try await parse(data)
+        return try parse(data)
     }
 
     // MARK: - Line Preprocessing
@@ -47,7 +47,7 @@ public actor ICalendarParser: Sendable {
 
     // MARK: - Core Parsing Logic
 
-    private func parseLines(_ lines: [String]) async throws -> ICalendar {
+    private func parseLines(_ lines: [String]) throws -> ICalendar {
         var calendar: ICalendar?
         var componentStack: [(any ICalendarComponent, String)] = []
         var currentProperties: [ICalendarProperty] = []
@@ -172,7 +172,7 @@ public actor ICalendarParser: Sendable {
     // MARK: - Validation
 
     /// Validate parsed calendar for RFC compliance
-    public func validate(_ calendar: ICalendar) async throws {
+    public func validate(_ calendar: ICalendar) throws {
         // Check required properties
         guard calendar.version == "2.0" else {
             throw ICalendarError.invalidPropertyValue(property: "VERSION", value: calendar.version)
@@ -184,28 +184,28 @@ public actor ICalendarParser: Sendable {
 
         // Validate components
         for component in calendar.components {
-            try await validateComponent(component)
+            try validateComponent(component)
         }
     }
 
-    private func validateComponent(_ component: any ICalendarComponent) async throws {
+    private func validateComponent(_ component: any ICalendarComponent) throws {
         switch component {
         case let event as ICalEvent:
-            try await validateEvent(event)
+            try validateEvent(event)
         case let todo as ICalTodo:
-            try await validateTodo(todo)
+            try validateTodo(todo)
         case let journal as ICalJournal:
-            try await validateJournal(journal)
+            try validateJournal(journal)
         case let alarm as ICalAlarm:
-            try await validateAlarm(alarm)
+            try validateAlarm(alarm)
         case let timeZone as ICalTimeZone:
-            try await validateTimeZone(timeZone)
+            try validateTimeZone(timeZone)
         default:
             break
         }
     }
 
-    private func validateEvent(_ event: ICalEvent) async throws {
+    private func validateEvent(_ event: ICalEvent) throws {
         // UID is required
         if event.uid.isEmpty {
             throw ICalendarError.missingRequiredProperty("UID")
@@ -225,11 +225,11 @@ public actor ICalendarParser: Sendable {
 
         // Validate sub-components
         for subComponent in event.components {
-            try await validateComponent(subComponent)
+            try validateComponent(subComponent)
         }
     }
 
-    private func validateTodo(_ todo: ICalTodo) async throws {
+    private func validateTodo(_ todo: ICalTodo) throws {
         // UID is required
         if todo.uid.isEmpty {
             throw ICalendarError.missingRequiredProperty("UID")
@@ -242,11 +242,11 @@ public actor ICalendarParser: Sendable {
 
         // Validate sub-components
         for subComponent in todo.components {
-            try await validateComponent(subComponent)
+            try validateComponent(subComponent)
         }
     }
 
-    private func validateJournal(_ journal: ICalJournal) async throws {
+    private func validateJournal(_ journal: ICalJournal) throws {
         // UID is required
         if journal.uid.isEmpty {
             throw ICalendarError.missingRequiredProperty("UID")
@@ -258,7 +258,7 @@ public actor ICalendarParser: Sendable {
         }
     }
 
-    private func validateAlarm(_ alarm: ICalAlarm) async throws {
+    private func validateAlarm(_ alarm: ICalAlarm) throws {
         // ACTION is required
         guard alarm.action != nil else {
             throw ICalendarError.missingRequiredProperty("ACTION")
@@ -301,7 +301,7 @@ public actor ICalendarParser: Sendable {
         }
     }
 
-    private func validateTimeZone(_ timeZone: ICalTimeZone) async throws {
+    private func validateTimeZone(_ timeZone: ICalTimeZone) throws {
         // TZID is required
         guard timeZone.timeZoneId != nil else {
             throw ICalendarError.missingRequiredProperty("TZID")
@@ -318,7 +318,7 @@ public actor ICalendarParser: Sendable {
 
         // Validate sub-components
         for subComponent in timeZone.components {
-            try await validateComponent(subComponent)
+            try validateComponent(subComponent)
         }
     }
 }
@@ -328,7 +328,7 @@ public actor ICalendarParser: Sendable {
 extension ICalendarParser {
 
     /// Parse multiple calendars from a string containing multiple VCALENDAR objects
-    public func parseMultiple(_ content: String) async throws -> [ICalendar] {
+    public func parseMultiple(_ content: String) throws -> [ICalendar] {
         let lines = preprocessLines(content)
         var calendars: [ICalendar] = []
         var currentCalendarLines: [String] = []
@@ -349,7 +349,7 @@ extension ICalendarParser {
                 nestingLevel -= 1
 
                 if nestingLevel == 0 {
-                    let calendar = try await parseLines(currentCalendarLines)
+                    let calendar = try parseLines(currentCalendarLines)
                     calendars.append(calendar)
                     currentCalendarLines = []
                     inCalendar = false
@@ -367,16 +367,16 @@ extension ICalendarParser {
     }
 
     /// Parse and validate in one operation
-    public func parseAndValidate(_ content: String) async throws -> ICalendar {
-        let calendar = try await parse(content)
-        try await validate(calendar)
+    public func parseAndValidate(_ content: String) throws -> ICalendar {
+        let calendar = try parse(content)
+        try validate(calendar)
         return calendar
     }
 
     /// Parse with custom validation
-    public func parse(_ content: String, customValidation: @Sendable (ICalendar) async throws -> Void) async throws -> ICalendar {
-        let calendar = try await parse(content)
-        try await customValidation(calendar)
+    public func parse(_ content: String, customValidation: @Sendable (ICalendar) throws -> Void) throws -> ICalendar {
+        let calendar = try parse(content)
+        try customValidation(calendar)
         return calendar
     }
 }

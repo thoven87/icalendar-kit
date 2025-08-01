@@ -9,7 +9,7 @@ extension CharacterSet {
 }
 
 /// Serializer for iCalendar content following RFC 5545 specifications with Swift 6 structured concurrency
-public actor ICalendarSerializer: Sendable {
+public struct ICalendarSerializer: Sendable {
 
     // MARK: - Serialization Options
 
@@ -49,18 +49,18 @@ public actor ICalendarSerializer: Sendable {
     // MARK: - Public Interface
 
     /// Serialize calendar to string
-    public func serialize(_ calendar: ICalendar) async throws -> String {
+    public func serialize(_ calendar: ICalendar) throws -> String {
         if options.validateBeforeSerializing {
             let parser = ICalendarParser()
-            try await parser.validate(calendar)
+            try parser.validate(calendar)
         }
 
-        return await serializeComponent(calendar)
+        return serializeComponent(calendar)
     }
 
     /// Serialize calendar to data
-    public func serializeToData(_ calendar: ICalendar) async throws -> Data {
-        let content = try await serialize(calendar)
+    public func serializeToData(_ calendar: ICalendar) throws -> Data {
+        let content = try serialize(calendar)
         guard let data = content.data(using: String.Encoding.utf8) else {
             throw ICalendarError.encodingError("Failed to encode calendar as UTF-8")
         }
@@ -68,17 +68,17 @@ public actor ICalendarSerializer: Sendable {
     }
 
     /// Serialize calendar to file
-    public func serializeToFile(_ calendar: ICalendar, url: URL) async throws {
-        let data = try await serializeToData(calendar)
+    public func serializeToFile(_ calendar: ICalendar, url: URL) throws {
+        let data = try serializeToData(calendar)
         try data.write(to: url)
     }
 
     /// Serialize multiple calendars
-    public func serialize(_ calendars: [ICalendar]) async throws -> String {
+    public func serialize(_ calendars: [ICalendar]) throws -> String {
         var results: [String] = []
 
         for calendar in calendars {
-            let serialized = try await serialize(calendar)
+            let serialized = try serialize(calendar)
             results.append(serialized)
         }
 
@@ -87,7 +87,7 @@ public actor ICalendarSerializer: Sendable {
 
     // MARK: - Component Serialization
 
-    private func serializeComponent(_ component: any ICalendarComponent) async -> String {
+    private func serializeComponent(_ component: any ICalendarComponent) -> String {
         var lines: [String] = []
 
         // BEGIN line
@@ -107,7 +107,7 @@ public actor ICalendarSerializer: Sendable {
 
         // Sub-components
         for subComponent in component.components {
-            let subComponentString = await serializeComponent(subComponent)
+            let subComponentString = serializeComponent(subComponent)
             lines.append(subComponentString)
         }
 
@@ -172,7 +172,7 @@ public actor ICalendarSerializer: Sendable {
     // MARK: - Specialized Serialization Methods
 
     /// Serialize only events from a calendar
-    public func serializeEvents(_ calendar: ICalendar) async throws -> String {
+    public func serializeEvents(_ calendar: ICalendar) throws -> String {
         var eventLines: [String] = []
 
         // Calendar header
@@ -190,7 +190,7 @@ public actor ICalendarSerializer: Sendable {
 
         // Events only
         for event in calendar.events {
-            let eventString = await serializeComponent(event)
+            let eventString = serializeComponent(event)
             eventLines.append(eventString)
         }
 
@@ -200,7 +200,7 @@ public actor ICalendarSerializer: Sendable {
     }
 
     /// Serialize with timezone information
-    public func serializeWithTimeZones(_ calendar: ICalendar) async throws -> String {
+    public func serializeWithTimeZones(_ calendar: ICalendar) throws -> String {
         var lines: [String] = []
 
         // BEGIN VCALENDAR
@@ -218,14 +218,14 @@ public actor ICalendarSerializer: Sendable {
 
         // Time zones first
         for timeZone in calendar.timeZones {
-            let tzString = await serializeComponent(timeZone)
+            let tzString = serializeComponent(timeZone)
             lines.append(tzString)
         }
 
         // Then other components
         for component in calendar.components {
             if !(component is ICalTimeZone) {
-                let componentString = await serializeComponent(component)
+                let componentString = serializeComponent(component)
                 lines.append(componentString)
             }
         }
@@ -236,7 +236,7 @@ public actor ICalendarSerializer: Sendable {
     }
 
     /// Create minimal valid calendar
-    public func serializeMinimal(_ calendar: ICalendar) async throws -> String {
+    public func serializeMinimal(_ calendar: ICalendar) throws -> String {
         let minimalOptions = SerializationOptions(
             lineLength: options.lineLength,
             sortProperties: options.sortProperties,
@@ -245,13 +245,13 @@ public actor ICalendarSerializer: Sendable {
         )
 
         let minimalSerializer = ICalendarSerializer(options: minimalOptions)
-        return try await minimalSerializer.serialize(calendar)
+        return try minimalSerializer.serialize(calendar)
     }
 
     // MARK: - Format-Specific Serialization
 
     /// Serialize for Outlook compatibility
-    public func serializeForOutlook(_ calendar: ICalendar) async -> String {
+    public func serializeForOutlook(_ calendar: ICalendar) -> String {
         var lines: [String] = []
 
         lines.append("BEGIN:VCALENDAR")
@@ -263,10 +263,10 @@ public actor ICalendarSerializer: Sendable {
         // Serialize components with Outlook-specific formatting
         for component in calendar.components {
             if let event = component as? ICalEvent {
-                let eventString = await serializeEventForOutlook(event)
+                let eventString = serializeEventForOutlook(event)
                 lines.append(eventString)
             } else {
-                let componentString = await serializeComponent(component)
+                let componentString = serializeComponent(component)
                 lines.append(componentString)
             }
         }
@@ -276,7 +276,7 @@ public actor ICalendarSerializer: Sendable {
         return lines.joined(separator: "\r\n")
     }
 
-    private func serializeEventForOutlook(_ event: ICalEvent) async -> String {
+    private func serializeEventForOutlook(_ event: ICalEvent) -> String {
         var lines: [String] = []
 
         lines.append("BEGIN:VEVENT")
@@ -318,7 +318,7 @@ public actor ICalendarSerializer: Sendable {
 
         // Sub-components
         for subComponent in event.components {
-            let subString = await serializeComponent(subComponent)
+            let subString = serializeComponent(subComponent)
             lines.append(subString)
         }
 
@@ -328,7 +328,7 @@ public actor ICalendarSerializer: Sendable {
     }
 
     /// Serialize for Google Calendar compatibility
-    public func serializeForGoogle(_ calendar: ICalendar) async -> String {
+    public func serializeForGoogle(_ calendar: ICalendar) -> String {
         var lines: [String] = []
 
         lines.append("BEGIN:VCALENDAR")
@@ -338,13 +338,13 @@ public actor ICalendarSerializer: Sendable {
 
         // Google prefers timezone components first
         for timeZone in calendar.timeZones {
-            let tzString = await serializeComponent(timeZone)
+            let tzString = serializeComponent(timeZone)
             lines.append(tzString)
         }
 
         for component in calendar.components {
             if !(component is ICalTimeZone) {
-                let componentString = await serializeComponent(component)
+                let componentString = serializeComponent(component)
                 lines.append(componentString)
             }
         }
@@ -357,7 +357,7 @@ public actor ICalendarSerializer: Sendable {
     // MARK: - Pretty Printing
 
     /// Serialize with human-readable formatting
-    public func serializePretty(_ calendar: ICalendar) async -> String {
+    public func serializePretty(_ calendar: ICalendar) -> String {
         let prettyOptions = SerializationOptions(
             lineLength: 120,  // Longer lines for readability
             sortProperties: true,
@@ -366,7 +366,7 @@ public actor ICalendarSerializer: Sendable {
         )
 
         let prettySerializer = ICalendarSerializer(options: prettyOptions)
-        let content = try! await prettySerializer.serialize(calendar)
+        let content = try! prettySerializer.serialize(calendar)
 
         // Add extra spacing between components
         return
@@ -378,8 +378,8 @@ public actor ICalendarSerializer: Sendable {
     // MARK: - Statistics and Analysis
 
     /// Get serialization statistics
-    public func getStatistics(_ calendar: ICalendar) async -> SerializationStatistics {
-        let content = try! await serialize(calendar)
+    public func getStatistics(_ calendar: ICalendar) -> SerializationStatistics {
+        let content = try! serialize(calendar)
         let lines = content.components(separatedBy: CharacterSet.newlines)
 
         return SerializationStatistics(
@@ -430,20 +430,20 @@ public struct SerializationStatistics: Sendable {
 extension ICalendarSerializer {
 
     /// Quick serialize to string
-    public static func serialize(_ calendar: ICalendar) async throws -> String {
+    public static func serialize(_ calendar: ICalendar) throws -> String {
         let serializer = ICalendarSerializer()
-        return try await serializer.serialize(calendar)
+        return try serializer.serialize(calendar)
     }
 
     /// Quick serialize to data
-    public static func serializeToData(_ calendar: ICalendar) async throws -> Data {
+    public static func serializeToData(_ calendar: ICalendar) throws -> Data {
         let serializer = ICalendarSerializer()
-        return try await serializer.serializeToData(calendar)
+        return try serializer.serializeToData(calendar)
     }
 
     /// Serialize with custom line ending
-    public func serialize(_ calendar: ICalendar, lineEnding: String) async throws -> String {
-        let content = try await serialize(calendar)
+    public func serialize(_ calendar: ICalendar, lineEnding: String) throws -> String {
+        let content = try serialize(calendar)
         return content.replacingOccurrences(of: "\r\n", with: lineEnding)
     }
 }

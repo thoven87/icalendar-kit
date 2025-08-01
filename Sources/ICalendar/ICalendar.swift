@@ -49,50 +49,50 @@ public struct ICalendarClient: Sendable {
     // MARK: - Parsing Operations
 
     /// Parse iCalendar content from string
-    public func parseCalendar(from content: String) async throws -> ICalendar {
+    public func parseCalendar(from content: String) throws -> ICalendar {
         let parser = ICalendarParser()
 
         if configuration.validateOnParse {
-            return try await parser.parseAndValidate(content)
+            return try parser.parseAndValidate(content)
         } else {
-            return try await parser.parse(content)
+            return try parser.parse(content)
         }
     }
 
     /// Parse iCalendar content from data
-    public func parseCalendar(from data: Data) async throws -> ICalendar {
+    public func parseCalendar(from data: Data) throws -> ICalendar {
         let parser = ICalendarParser()
 
         if configuration.validateOnParse {
-            let calendar = try await parser.parse(data)
-            try await parser.validate(calendar)
+            let calendar = try parser.parse(data)
+            try parser.validate(calendar)
             return calendar
         } else {
-            return try await parser.parse(data)
+            return try parser.parse(data)
         }
     }
 
     /// Parse iCalendar file from URL
-    public func parseCalendar(from url: URL) async throws -> ICalendar {
+    public func parseCalendar(from url: URL) throws -> ICalendar {
         let parser = ICalendarParser()
 
         if configuration.validateOnParse {
-            let calendar = try await parser.parseFile(at: url)
-            try await parser.validate(calendar)
+            let calendar = try parser.parseFile(at: url)
+            try parser.validate(calendar)
             return calendar
         } else {
-            return try await parser.parseFile(at: url)
+            return try parser.parseFile(at: url)
         }
     }
 
     /// Parse multiple calendars from content
-    public func parseCalendars(from content: String) async throws -> [ICalendar] {
+    public func parseCalendars(from content: String) throws -> [ICalendar] {
         let parser = ICalendarParser()
-        let calendars = try await parser.parseMultiple(content)
+        let calendars = try parser.parseMultiple(content)
 
         if configuration.validateOnParse {
             for calendar in calendars {
-                try await parser.validate(calendar)
+                try parser.validate(calendar)
             }
         }
 
@@ -102,43 +102,43 @@ public struct ICalendarClient: Sendable {
     // MARK: - Serialization Operations
 
     /// Serialize calendar to string
-    public func serializeCalendar(_ calendar: ICalendar) async throws -> String {
+    public func serializeCalendar(_ calendar: ICalendar) throws -> String {
         let serializer = ICalendarSerializer(
             options: ICalendarSerializer.SerializationOptions(
                 validateBeforeSerializing: configuration.validateOnSerialize
             )
         )
-        return try await serializer.serialize(calendar)
+        return try serializer.serialize(calendar)
     }
 
     /// Serialize calendar to data
-    public func serializeCalendar(_ calendar: ICalendar) async throws -> Data {
+    public func serializeCalendar(_ calendar: ICalendar) throws -> Data {
         let serializer = ICalendarSerializer(
             options: ICalendarSerializer.SerializationOptions(
                 validateBeforeSerializing: configuration.validateOnSerialize
             )
         )
-        return try await serializer.serializeToData(calendar)
+        return try serializer.serializeToData(calendar)
     }
 
     /// Serialize calendar to file
-    public func serializeCalendar(_ calendar: ICalendar, to url: URL) async throws {
+    public func serializeCalendar(_ calendar: ICalendar, to url: URL) throws {
         let serializer = ICalendarSerializer(
             options: ICalendarSerializer.SerializationOptions(
                 validateBeforeSerializing: configuration.validateOnSerialize
             )
         )
-        try await serializer.serializeToFile(calendar, url: url)
+        try serializer.serializeToFile(calendar, url: url)
     }
 
     /// Serialize multiple calendars
-    public func serializeCalendars(_ calendars: [ICalendar]) async throws -> String {
+    public func serializeCalendars(_ calendars: [ICalendar]) throws -> String {
         let serializer = ICalendarSerializer(
             options: ICalendarSerializer.SerializationOptions(
                 validateBeforeSerializing: configuration.validateOnSerialize
             )
         )
-        return try await serializer.serialize(calendars)
+        return try serializer.serialize(calendars)
     }
 
     // MARK: - Calendar Creation
@@ -455,15 +455,15 @@ public struct ICalendarClient: Sendable {
     // MARK: - Utility Operations
 
     /// Validate a calendar
-    public func validateCalendar(_ calendar: ICalendar) async throws {
+    public func validateCalendar(_ calendar: ICalendar) throws {
         let parser = ICalendarParser()
-        try await parser.validate(calendar)
+        try parser.validate(calendar)
     }
 
     /// Get calendar statistics
-    public func getCalendarStatistics(_ calendar: ICalendar) async -> CalendarStatistics {
+    public func getCalendarStatistics(_ calendar: ICalendar) -> CalendarStatistics {
         let serializer = ICalendarSerializer()
-        let serializationStats = await serializer.getStatistics(calendar)
+        let serializationStats = serializer.getStatistics(calendar)
 
         let totalAttendees = calendar.events.reduce(0) { $0 + $1.attendees.count }
         let eventsWithAlarms = calendar.events.filter { !$0.alarms.isEmpty }.count
@@ -486,7 +486,7 @@ public struct ICalendarClient: Sendable {
         in calendar: ICalendar,
         from startDate: Date,
         to endDate: Date
-    ) async -> [ICalEvent] {
+    ) -> [ICalEvent] {
         calendar.events.filter { event in
             guard let eventStart = event.dateTimeStart?.date else { return false }
 
@@ -854,15 +854,15 @@ public struct CalendarStatistics: Sendable {
 extension ICalendarClient {
 
     /// Quick parse from string
-    public static func parse(_ content: String) async throws -> ICalendar {
+    public static func parse(_ content: String) throws -> ICalendar {
         let client = ICalendarClient()
-        return try await client.parseCalendar(from: content)
+        return try client.parseCalendar(from: content)
     }
 
     /// Quick serialize to string
-    public static func serialize(_ calendar: ICalendar) async throws -> String {
+    public static func serialize(_ calendar: ICalendar) throws -> String {
         let client = ICalendarClient()
-        return try await client.serializeCalendar(calendar)
+        return try client.serializeCalendar(calendar)
     }
 
     /// Create a simple meeting invitation

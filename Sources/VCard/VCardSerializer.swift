@@ -1,7 +1,7 @@
 import Foundation
 
 /// Serializer for vCard content following RFC-6350 specifications with Swift 6 structured concurrency
-public actor VCardSerializer: Sendable {
+public struct VCardSerializer: Sendable {
 
     // MARK: - Serialization Options
 
@@ -44,18 +44,18 @@ public actor VCardSerializer: Sendable {
     // MARK: - Public Interface
 
     /// Serialize vCard to string
-    public func serialize(_ vcard: VCard) async throws -> String {
+    public func serialize(_ vcard: VCard) throws -> String {
         if options.validateBeforeSerializing {
             let parser = VCardParser()
-            try await parser.validate(vcard)
+            try parser.validate(vcard)
         }
 
-        return await serializeVCard(vcard)
+        return serializeVCard(vcard)
     }
 
     /// Serialize vCard to data
-    public func serializeToData(_ vcard: VCard) async throws -> Data {
-        let content = try await serialize(vcard)
+    public func serializeToData(_ vcard: VCard) throws -> Data {
+        let content = try serialize(vcard)
         guard let data = content.data(using: String.Encoding.utf8) else {
             throw VCardError.encodingError("Failed to encode vCard as UTF-8")
         }
@@ -63,17 +63,17 @@ public actor VCardSerializer: Sendable {
     }
 
     /// Serialize vCard to file
-    public func serializeToFile(_ vcard: VCard, url: URL) async throws {
-        let data = try await serializeToData(vcard)
+    public func serializeToFile(_ vcard: VCard, url: URL) throws {
+        let data = try serializeToData(vcard)
         try data.write(to: url)
     }
 
     /// Serialize multiple vCards
-    public func serialize(_ vcards: [VCard]) async throws -> String {
+    public func serialize(_ vcards: [VCard]) throws -> String {
         var results: [String] = []
 
         for vcard in vcards {
-            let serialized = try await serialize(vcard)
+            let serialized = try serialize(vcard)
             results.append(serialized)
         }
 
@@ -82,7 +82,7 @@ public actor VCardSerializer: Sendable {
 
     // MARK: - Core Serialization
 
-    private func serializeVCard(_ vcard: VCard) async -> String {
+    private func serializeVCard(_ vcard: VCard) -> String {
         var lines: [String] = []
 
         // BEGIN line
@@ -154,7 +154,7 @@ public actor VCardSerializer: Sendable {
     // MARK: - Specialized Serialization Methods
 
     /// Serialize for specific vCard version
-    public func serialize(_ vcard: VCard, version: VCardVersion) async throws -> String {
+    public func serialize(_ vcard: VCard, version: VCardVersion) throws -> String {
         let versionOptions = SerializationOptions(
             lineLength: options.lineLength,
             sortProperties: options.sortProperties,
@@ -164,11 +164,11 @@ public actor VCardSerializer: Sendable {
         )
 
         let versionSerializer = VCardSerializer(options: versionOptions)
-        return try await versionSerializer.serialize(vcard)
+        return try versionSerializer.serialize(vcard)
     }
 
     /// Serialize with minimal properties only
-    public func serializeMinimal(_ vcard: VCard) async throws -> String {
+    public func serializeMinimal(_ vcard: VCard) throws -> String {
         let minimalOptions = SerializationOptions(
             lineLength: options.lineLength,
             sortProperties: options.sortProperties,
@@ -178,11 +178,11 @@ public actor VCardSerializer: Sendable {
         )
 
         let minimalSerializer = VCardSerializer(options: minimalOptions)
-        return try await minimalSerializer.serialize(vcard)
+        return try minimalSerializer.serialize(vcard)
     }
 
     /// Serialize for Apple Contacts compatibility
-    public func serializeForApple(_ vcard: VCard) async -> String {
+    public func serializeForApple(_ vcard: VCard) -> String {
         var lines: [String] = []
 
         lines.append("BEGIN:VCARD")
@@ -248,7 +248,7 @@ public actor VCardSerializer: Sendable {
     }
 
     /// Serialize for Google Contacts compatibility
-    public func serializeForGoogle(_ vcard: VCard) async -> String {
+    public func serializeForGoogle(_ vcard: VCard) -> String {
         var lines: [String] = []
 
         lines.append("BEGIN:VCARD")
@@ -281,7 +281,7 @@ public actor VCardSerializer: Sendable {
     }
 
     /// Serialize for Outlook compatibility
-    public func serializeForOutlook(_ vcard: VCard) async -> String {
+    public func serializeForOutlook(_ vcard: VCard) -> String {
         var lines: [String] = []
 
         lines.append("BEGIN:VCARD")
@@ -321,7 +321,7 @@ public actor VCardSerializer: Sendable {
     // MARK: - Pretty Printing
 
     /// Serialize with human-readable formatting
-    public func serializePretty(_ vcard: VCard) async -> String {
+    public func serializePretty(_ vcard: VCard) -> String {
         let prettyOptions = SerializationOptions(
             lineLength: 120,  // Longer lines for readability
             sortProperties: true,
@@ -331,7 +331,7 @@ public actor VCardSerializer: Sendable {
         )
 
         let prettySerializer = VCardSerializer(options: prettyOptions)
-        let content = try! await prettySerializer.serialize(vcard)
+        let content = try! prettySerializer.serialize(vcard)
 
         // Add extra spacing for readability
         return
@@ -342,8 +342,8 @@ public actor VCardSerializer: Sendable {
     // MARK: - Statistics and Analysis
 
     /// Get serialization statistics
-    public func getStatistics(_ vcard: VCard) async -> SerializationStatistics {
-        let content = try! await serialize(vcard)
+    public func getStatistics(_ vcard: VCard) -> SerializationStatistics {
+        let content = try! serialize(vcard)
         let lines = content.components(separatedBy: CharacterSet.newlines)
 
         return SerializationStatistics(
@@ -391,20 +391,20 @@ public struct SerializationStatistics: Sendable {
 extension VCardSerializer {
 
     /// Quick serialize to string
-    public static func serialize(_ vcard: VCard) async throws -> String {
+    public static func serialize(_ vcard: VCard) throws -> String {
         let serializer = VCardSerializer()
-        return try await serializer.serialize(vcard)
+        return try serializer.serialize(vcard)
     }
 
     /// Quick serialize to data
-    public static func serializeToData(_ vcard: VCard) async throws -> Data {
+    public static func serializeToData(_ vcard: VCard) throws -> Data {
         let serializer = VCardSerializer()
-        return try await serializer.serializeToData(vcard)
+        return try serializer.serializeToData(vcard)
     }
 
     /// Serialize with custom line ending
-    public func serialize(_ vcard: VCard, lineEnding: String) async throws -> String {
-        let content = try await serialize(vcard)
+    public func serialize(_ vcard: VCard, lineEnding: String) throws -> String {
+        let content = try serialize(vcard)
         return content.replacingOccurrences(of: "\r\n", with: lineEnding)
     }
 }
