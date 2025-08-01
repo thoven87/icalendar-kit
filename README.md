@@ -2,6 +2,10 @@
 
 A comprehensive Swift 6 library for parsing and creating iCalendar (RFC 5545) events with full support for structured concurrency, Sendable conformance, and modern Swift features.
 
+[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fthoven87%2Ficalendar-kit%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/thoven87/icalendar-kit)
+[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fthoven87%2Ficalendar-kit%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/thoven87/icalendar-kit)
+[![CI](https://github.com/thoven87/icalendar-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/thoven87/icalendar-kit/actions/workflows/ci.yml)
+
 ## Features
 
 - **RFC Compliant**: Full support for RFC 5545, RFC 5546, RFC 6868, RFC 7529, and RFC 7986
