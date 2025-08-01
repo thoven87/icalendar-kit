@@ -4,7 +4,7 @@ import Testing
 @testable import VCard
 
 @Test("Basic vCard Creation")
-func testBasicVCardCreation() async throws {
+func testBasicVCardCreation() throws {
     let client = VCardClient()
     let vcard = client.createVCard(formattedName: "John Doe")
 
@@ -13,7 +13,7 @@ func testBasicVCardCreation() async throws {
 }
 
 @Test("Person vCard Creation")
-func testPersonVCardCreation() async throws {
+func testPersonVCardCreation() throws {
     let client = VCardClient()
     let vcard = client.createPersonVCard(
         formattedName: "John Smith",
@@ -34,7 +34,7 @@ func testPersonVCardCreation() async throws {
 }
 
 @Test("Organization vCard Creation")
-func testOrganizationVCardCreation() async throws {
+func testOrganizationVCardCreation() throws {
     let client = VCardClient()
     let vcard = client.createOrganizationVCard(
         organizationName: "Acme Corporation",
@@ -48,7 +48,7 @@ func testOrganizationVCardCreation() async throws {
 }
 
 @Test("Adding Contact Information")
-func testAddingContactInformation() async throws {
+func testAddingContactInformation() throws {
     let client = VCardClient()
     var vcard = client.createVCard(formattedName: "Test Contact")
 
@@ -74,11 +74,11 @@ func testAddingContactInformation() async throws {
 }
 
 @Test("vCard Serialization")
-func testVCardSerialization() async throws {
+func testVCardSerialization() throws {
     let client = VCardClient()
     let vcard = client.createVCard(formattedName: "Test User")
 
-    let serialized: String = try await client.serializeVCard(vcard)
+    let serialized: String = try client.serializeVCard(vcard)
 
     #expect(serialized.contains("BEGIN:VCARD"))
     #expect(serialized.contains("END:VCARD"))
@@ -87,7 +87,7 @@ func testVCardSerialization() async throws {
 }
 
 @Test("vCard Parsing")
-func testVCardParsing() async throws {
+func testVCardParsing() throws {
     let client = VCardClient()
     let vcardString = """
         BEGIN:VCARD
@@ -101,7 +101,7 @@ func testVCardParsing() async throws {
         END:VCARD
         """
 
-    let vcard = try await client.parseVCard(from: vcardString)
+    let vcard = try client.parseVCard(from: vcardString)
 
     #expect(vcard.formattedName == "Jane Doe")
     #expect(vcard.name?.familyNames == ["Doe"])
@@ -116,7 +116,7 @@ func testVCardParsing() async throws {
 }
 
 @Test("Name Formatting and Parsing")
-func testNameFormattingAndParsing() async throws {
+func testNameFormattingAndParsing() throws {
     let name = VCardName(
         familyNames: ["Smith", "Jones"],
         givenNames: ["John", "Paul"],
@@ -136,7 +136,7 @@ func testNameFormattingAndParsing() async throws {
 }
 
 @Test("Address Formatting and Parsing")
-func testAddressFormattingAndParsing() async throws {
+func testAddressFormattingAndParsing() throws {
     let address = VCardAddress(
         postOfficeBox: "PO Box 123",
         extendedAddress: "Suite 456",
@@ -160,7 +160,7 @@ func testAddressFormattingAndParsing() async throws {
 }
 
 @Test("Geo Formatting and Parsing")
-func testGeoFormattingAndParsing() async throws {
+func testGeoFormattingAndParsing() throws {
     let geo = VCardGeo(latitude: 37.7749, longitude: -122.4194)
 
     let formatted = VCardFormatter.format(geo: geo)
@@ -172,7 +172,7 @@ func testGeoFormattingAndParsing() async throws {
 }
 
 @Test("Date Formatting and Parsing")
-func testDateFormattingAndParsing() async throws {
+func testDateFormattingAndParsing() throws {
     let date = VCardDate(year: 1990, month: 12, day: 25)
 
     let formatted = VCardFormatter.format(date: date)
@@ -185,7 +185,7 @@ func testDateFormattingAndParsing() async throws {
 }
 
 @Test("Organization Formatting and Parsing")
-func testOrganizationFormattingAndParsing() async throws {
+func testOrganizationFormattingAndParsing() throws {
     let org = VCardOrganization(
         organizationName: "Acme Corp",
         organizationalUnits: ["Engineering", "Software", "Mobile"]
@@ -199,7 +199,7 @@ func testOrganizationFormattingAndParsing() async throws {
 }
 
 @Test("Text Escaping and Unescaping")
-func testTextEscapingAndUnescaping() async throws {
+func testTextEscapingAndUnescaping() throws {
     let text = "Hello; world,\nThis is a test\r\nwith\\backslash"
     let escaped = VCardFormatter.escapeText(text)
     let unescaped = VCardFormatter.unescapeText(escaped)
@@ -212,7 +212,7 @@ func testTextEscapingAndUnescaping() async throws {
 }
 
 @Test("Property Formatting and Parsing")
-func testPropertyFormattingAndParsing() async throws {
+func testPropertyFormattingAndParsing() throws {
     let property = VProperty(
         name: "EMAIL",
         value: "test@example.com",
@@ -229,7 +229,7 @@ func testPropertyFormattingAndParsing() async throws {
 }
 
 @Test("Multiple vCard Parsing")
-func testMultipleVCardParsing() async throws {
+func testMultipleVCardParsing() throws {
     let client = VCardClient()
     let multipleVCards = """
         BEGIN:VCARD
@@ -244,7 +244,7 @@ func testMultipleVCardParsing() async throws {
         END:VCARD
         """
 
-    let vcards = try await client.parseVCards(from: multipleVCards)
+    let vcards = try client.parseVCards(from: multipleVCards)
 
     #expect(vcards.count == 2)
     #expect(vcards[0].formattedName == "John Doe")
@@ -252,7 +252,7 @@ func testMultipleVCardParsing() async throws {
 }
 
 @Test("vCard Builder Pattern")
-func testVCardBuilderPattern() async throws {
+func testVCardBuilderPattern() throws {
     let vcard = VCardBuilder(formattedName: "Builder Test")
         .name(familyName: "Test", givenName: "Builder")
         .email("builder@example.com", types: [.work])
@@ -277,7 +277,7 @@ func testVCardBuilderPattern() async throws {
 }
 
 @Test("Address Builder Pattern")
-func testAddressBuilderPattern() async throws {
+func testAddressBuilderPattern() throws {
     let address = VCardAddressBuilder()
         .streetAddress("123 Main St")
         .locality("Anytown")
@@ -294,7 +294,7 @@ func testAddressBuilderPattern() async throws {
 }
 
 @Test("Contact Templates")
-func testContactTemplates() async throws {
+func testContactTemplates() throws {
     let personal = ContactTemplates.personalContact(
         name: "John Doe",
         email: "john@personal.com",
@@ -329,12 +329,12 @@ func testContactTemplates() async throws {
 }
 
 @Test("vCard Validation")
-func testVCardValidation() async throws {
+func testVCardValidation() throws {
     let client = VCardClient()
     let validVCard = client.createVCard(formattedName: "Valid Contact")
 
     // Should not throw for valid vCard
-    try await client.validateVCard(validVCard)
+    try client.validateVCard(validVCard)
 
     // Test validation utilities
     #expect(VCardValidationUtilities.hasMinimumInfo(validVCard) == true)
@@ -347,7 +347,7 @@ func testVCardValidation() async throws {
 }
 
 @Test("vCard Statistics")
-func testVCardStatistics() async throws {
+func testVCardStatistics() throws {
     let client = VCardClient()
     var vcard = client.createPersonVCard(formattedName: "Test User")
 
@@ -355,7 +355,7 @@ func testVCardStatistics() async throws {
     client.addEmail(to: &vcard, email: "test2@example.com")
     client.addTelephone(to: &vcard, number: "+1234567890")
 
-    let stats = await client.getVCardStatistics(vcard)
+    let stats = client.getVCardStatistics(vcard)
 
     #expect(stats.emailCount == 2)
     #expect(stats.telephoneCount == 1)
@@ -365,7 +365,7 @@ func testVCardStatistics() async throws {
 }
 
 @Test("Contact Finding")
-func testContactFinding() async throws {
+func testContactFinding() throws {
     let client = VCardClient()
     let vcards = [
         client.createPersonVCard(formattedName: "John Doe"),
@@ -387,7 +387,7 @@ func testContactFinding() async throws {
 }
 
 @Test("Array Extensions")
-func testArrayExtensions() async throws {
+func testArrayExtensions() throws {
     let client = VCardClient()
     let vcards = [
         client.createPersonVCard(formattedName: "Alice"),
@@ -404,7 +404,7 @@ func testArrayExtensions() async throws {
 }
 
 @Test("String Extensions")
-func testStringExtensions() async throws {
+func testStringExtensions() throws {
     #expect("test@example.com".isValidEmail == true)
     #expect("invalid-email".isValidEmail == false)
 
@@ -422,7 +422,7 @@ func testStringExtensions() async throws {
 }
 
 @Test("Date Extensions")
-func testDateExtensions() async throws {
+func testDateExtensions() throws {
     let date = Date()
     let vCardDate = date.asVCardDate()
     let vCardDateTime = date.asVCardDateTime()
@@ -432,7 +432,7 @@ func testDateExtensions() async throws {
 }
 
 @Test("Sendable Conformance")
-func testSendableConformance() async throws {
+func testSendableConformance() throws {
     // Test that all main types conform to Sendable
     let vcard = VCard(formattedName: "Test")
     let address = VCardAddress(streetAddress: "123 Main St")
@@ -447,21 +447,17 @@ func testSendableConformance() async throws {
         let _ = organization
     }
 
-    // Test structured concurrency with actors
     let parser = VCardParser()
     let serializer = VCardSerializer()
 
-    async let parsedVCard = parser.parse("BEGIN:VCARD\nVERSION:4.0\nFN:Test\nEND:VCARD")
-    async let serializedVCard = serializer.serialize(vcard)
+    let _ = try parser.parse("BEGIN:VCARD\nVERSION:4.0\nFN:Test\nEND:VCARD")
+    let _ = try serializer.serialize(vcard)
 
-    let _ = try await parsedVCard
-    let _ = try await serializedVCard
-
-    #expect(Bool(true))  // If we reach here, Sendable conformance is working
+    #expect(Bool(true))
 }
 
 @Test("Complex vCard with All Properties")
-func testComplexVCard() async throws {
+func testComplexVCard() throws {
     let client = VCardClient()
     var vcard = client.createPersonVCard(
         formattedName: "Dr. John William Smith Jr.",
@@ -508,8 +504,8 @@ func testComplexVCard() async throws {
     vcard.uid = "john.smith.unique.id.123"
 
     // Test serialization and parsing
-    let serialized: String = try await client.serializeVCard(vcard)
-    let parsed = try await client.parseVCard(from: serialized)
+    let serialized: String = try client.serializeVCard(vcard)
+    let parsed = try client.parseVCard(from: serialized)
 
     #expect(parsed.formattedName == vcard.formattedName)
     #expect(parsed.name?.familyNames == vcard.name?.familyNames)
@@ -520,14 +516,14 @@ func testComplexVCard() async throws {
 }
 
 @Test("Error Handling")
-func testErrorHandling() async throws {
+func testErrorHandling() throws {
     let client = VCardClient()
 
     // Test invalid vCard format
     let invalidVCard = "INVALID VCARD CONTENT"
 
     do {
-        _ = try await client.parseVCard(from: invalidVCard)
+        _ = try client.parseVCard(from: invalidVCard)
         #expect(Bool(false), "Should have thrown an error")
     } catch VCardError.invalidFormat {
         // Expected error
@@ -544,8 +540,8 @@ func testErrorHandling() async throws {
         """
 
     do {
-        let vcard = try await client.parseVCard(from: incompleteVCard)
-        try await client.validateVCard(vcard)
+        let vcard = try client.parseVCard(from: incompleteVCard)
+        try client.validateVCard(vcard)
         #expect(Bool(false), "Should have thrown validation error")
     } catch VCardError.missingRequiredProperty {
         // Expected error

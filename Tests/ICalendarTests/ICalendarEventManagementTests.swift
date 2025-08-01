@@ -4,7 +4,7 @@ import Testing
 @testable import ICalendar
 
 @Test("Event Update Functionality")
-func testEventUpdate() async throws {
+func testEventUpdate() throws {
     let client = ICalendarClient()
     var calendar = client.createCalendar(productId: "-//Test//EN")
 
@@ -65,7 +65,7 @@ func testEventUpdate() async throws {
 }
 
 @Test("Event Rescheduling")
-func testEventRescheduling() async throws {
+func testEventRescheduling() throws {
     let client = ICalendarClient()
     var calendar = client.createCalendar(productId: "-//Test//EN")
 
@@ -115,7 +115,7 @@ func testEventRescheduling() async throws {
 }
 
 @Test("Event Deletion")
-func testEventDeletion() async throws {
+func testEventDeletion() throws {
     let client = ICalendarClient()
     var calendar = client.createCalendar(productId: "-//Test//EN")
 
@@ -153,7 +153,7 @@ func testEventDeletion() async throws {
 }
 
 @Test("Alarm Checking Functionality")
-func testAlarmChecking() async throws {
+func testAlarmChecking() throws {
     let client = ICalendarClient()
 
     let eventWithoutAlarms = client.createEvent(
@@ -211,7 +211,7 @@ func testAlarmChecking() async throws {
 }
 
 @Test("Alarm Management")
-func testAlarmManagement() async throws {
+func testAlarmManagement() throws {
     let client = ICalendarClient()
     var event = client.createEvent(
         summary: "Alarm Test",
@@ -245,7 +245,7 @@ func testAlarmManagement() async throws {
 }
 
 @Test("Finding Events with Alarms")
-func testFindingEventsWithAlarms() async throws {
+func testFindingEventsWithAlarms() throws {
     let client = ICalendarClient()
     var calendar = client.createCalendar(productId: "-//Test//EN")
 
@@ -303,7 +303,7 @@ func testFindingEventsWithAlarms() async throws {
 }
 
 @Test("Event Search Functionality")
-func testEventSearch() async throws {
+func testEventSearch() throws {
     let client = ICalendarClient()
     var calendar = client.createCalendar(productId: "-//Test//EN")
 
@@ -352,7 +352,7 @@ func testEventSearch() async throws {
 }
 
 @Test("Attendee Management")
-func testAttendeeManagement() async throws {
+func testAttendeeManagement() throws {
     let client = ICalendarClient()
     var calendar = client.createCalendar(productId: "-//Test//EN")
 
@@ -405,7 +405,7 @@ func testAttendeeManagement() async throws {
 }
 
 @Test("Event Status Management")
-func testEventStatusManagement() async throws {
+func testEventStatusManagement() throws {
     let client = ICalendarClient()
     var calendar = client.createCalendar(productId: "-//Test//EN")
 
@@ -443,7 +443,7 @@ func testEventStatusManagement() async throws {
 }
 
 @Test("ICalEvent Extensions")
-func testICalEventExtensions() async throws {
+func testICalEventExtensions() throws {
     let client = ICalendarClient()
 
     // Test alarm extensions
@@ -486,7 +486,7 @@ func testICalEventExtensions() async throws {
 }
 
 @Test("ICalendar Extensions")
-func testICalendarExtensions() async throws {
+func testICalendarExtensions() throws {
     let client = ICalendarClient()
     var calendar = client.createCalendar(productId: "-//Test//EN")
 
@@ -555,7 +555,7 @@ func testICalendarExtensions() async throws {
 }
 
 @Test("Upcoming Alarms")
-func testUpcomingAlarms() async throws {
+func testUpcomingAlarms() throws {
     let client = ICalendarClient()
     var calendar = client.createCalendar(productId: "-//Test//EN")
 
@@ -592,7 +592,7 @@ func testUpcomingAlarms() async throws {
 }
 
 @Test("Event Happening Now")
-func testEventHappeningNow() async throws {
+func testEventHappeningNow() throws {
     let client = ICalendarClient()
 
     let now = Date()

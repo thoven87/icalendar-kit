@@ -4,7 +4,7 @@ import Testing
 @testable import VCard
 
 @Test("VCard Formatter Date Parsing Edge Cases")
-func testDateParsingEdgeCases() async throws {
+func testDateParsingEdgeCases() throws {
     // Test partial dates
     let partialYear = VCardFormatter.parseDate("1990----")
     #expect(partialYear?.year == 1990)
@@ -31,7 +31,7 @@ func testDateParsingEdgeCases() async throws {
 }
 
 @Test("VCard Formatter Geo Parsing Variations")
-func testGeoParsingVariations() async throws {
+func testGeoParsingVariations() throws {
     // Test geo: URI format
     let geoURI = VCardFormatter.parseGeo("geo:37.7749,-122.4194")
     #expect(geoURI?.latitude == 37.7749)
@@ -56,7 +56,7 @@ func testGeoParsingVariations() async throws {
 }
 
 @Test("VCard Formatter Line Folding")
-func testLineFolding() async throws {
+func testLineFolding() throws {
     let longLine = "DESCRIPTION:" + String(repeating: "A", count: 100)
     let folded = VCardFormatter.foldLine(longLine, maxLength: 75)
 
@@ -67,7 +67,7 @@ func testLineFolding() async throws {
 }
 
 @Test("VCard Formatter Parameter Escaping")
-func testParameterEscaping() async throws {
+func testParameterEscaping() throws {
     let paramWithSpecialChars = "My Company: Best \"Quotes\" & More"
     let escaped = VCardFormatter.escapeParameterValue(paramWithSpecialChars)
     let unescaped = VCardFormatter.unescapeParameterValue(escaped)
@@ -78,7 +78,7 @@ func testParameterEscaping() async throws {
 }
 
 @Test("VCard Formatter Validation Functions")
-func testValidationFunctions() async throws {
+func testValidationFunctions() throws {
     // Email validation
     #expect(VCardFormatter.isValidEmail("user@domain.com") == true)
     #expect(VCardFormatter.isValidEmail("user+tag@domain.co.uk") == true)
@@ -118,7 +118,7 @@ func testValidationFunctions() async throws {
 }
 
 @Test("VCard Formatter Structured Value Parsing")
-func testStructuredValueParsing() async throws {
+func testStructuredValueParsing() throws {
     let structuredValue = "component1;component2;component3"
     let parsed = VCardFormatter.parseStructuredValue(structuredValue)
     #expect(parsed == ["component1", "component2", "component3"])
@@ -137,7 +137,7 @@ func testStructuredValueParsing() async throws {
 }
 
 @Test("VCard Formatter Base64 Encoding")
-func testBase64Encoding() async throws {
+func testBase64Encoding() throws {
     let testData = "Hello, World!".data(using: String.Encoding.utf8)!
     let encoded = VCardFormatter.encodeBase64(testData)
     let decoded = VCardFormatter.decodeBase64(encoded)
@@ -147,7 +147,7 @@ func testBase64Encoding() async throws {
 }
 
 @Test("VCard Formatter Complex Property Parsing")
-func testComplexPropertyParsing() async throws {
+func testComplexPropertyParsing() throws {
     let complexProperty = "EMAIL;TYPE=WORK,INTERNET;PREF=1;LABEL=\"Work Email\":john.doe@company.com"
     let parsed = VCardFormatter.parseProperty(complexProperty)
 
@@ -166,7 +166,7 @@ func testComplexPropertyParsing() async throws {
 }
 
 @Test("VCard Formatter Timestamp Parsing")
-func testTimestampParsing() async throws {
+func testTimestampParsing() throws {
     let date = Date(timeIntervalSince1970: 1_609_459_200)  // 2021-01-01 00:00:00 UTC
     let formatted = VCardFormatter.format(timestamp: date)
     let parsed = VCardFormatter.parseTimestamp(formatted)
@@ -183,7 +183,7 @@ func testTimestampParsing() async throws {
 }
 
 @Test("VCard Formatter Organization Edge Cases")
-func testOrganizationEdgeCases() async throws {
+func testOrganizationEdgeCases() throws {
     // Organization with no units
     let simpleOrg = VCardOrganization(organizationName: "Simple Corp")
     let formatted = VCardFormatter.format(organization: simpleOrg)
@@ -205,7 +205,7 @@ func testOrganizationEdgeCases() async throws {
 }
 
 @Test("VCard Formatter Address Edge Cases")
-func testAddressEdgeCases() async throws {
+func testAddressEdgeCases() throws {
     // Address with all nil components
     let emptyAddress = VCardAddress()
     let formatted = VCardFormatter.format(address: emptyAddress)
@@ -231,7 +231,7 @@ func testAddressEdgeCases() async throws {
 }
 
 @Test("VCard Formatter Name Edge Cases")
-func testNameEdgeCases() async throws {
+func testNameEdgeCases() throws {
     // Name with empty components
     let emptyName = VCardName()
     let formatted = VCardFormatter.format(name: emptyName)

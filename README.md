@@ -6,8 +6,7 @@ A comprehensive Swift 6 library for parsing and creating iCalendar (RFC 5545) ev
 
 - **RFC Compliant**: Full support for RFC 5545, RFC 5546, RFC 6868, RFC 7529, and RFC 7986
 - **Swift 6 Ready**: Complete Sendable conformance and structured concurrency support
-- **Type Safe**: Uses structs instead of classes with comprehensive type safety
-- **Actor-based**: Parser and serializer use actors for thread-safe operations
+- **Type Safe**: Uses structs instead of classes with comprehensive type  operations
 - **Comprehensive**: Support for events, todos, journals, alarms, time zones, and recurrence rules
 - **Builder Pattern**: Fluent API for easy calendar and event creation
 - **Extensible**: Support for custom properties and extensions
@@ -58,7 +57,7 @@ var calendar = client.createCalendar(productId: "-//My App//EN")
 calendar.addEvent(event)
 
 // Serialize to iCalendar format
-let icalString = try await client.serializeCalendar(calendar)
+let icalString = try client.serializeCalendar(calendar)
 print(icalString)
 ```
 
@@ -80,7 +79,7 @@ END:VEVENT
 END:VCALENDAR
 """
 
-let calendar = try await client.parseCalendar(from: icalContent)
+let calendar = try client.parseCalendar(from: icalContent)
 print("Found \(calendar.events.count) events")
 ```
 
@@ -262,7 +261,7 @@ let serializationOptions = ICalendarSerializer.SerializationOptions(
 )
 
 let serializer = ICalendarSerializer(options: serializationOptions)
-let serialized = try await serializer.serialize(calendar)
+let serialized = try serializer.serialize(calendar)
 ```
 
 ## Structured Concurrency Support
@@ -271,17 +270,17 @@ The library is built with Swift 6 structured concurrency in mind:
 
 ```swift
 // Concurrent parsing of multiple calendars
-async let calendar1 = client.parseCalendar(from: content1)
-async let calendar2 = client.parseCalendar(from: content2)
-async let calendar3 = client.parseCalendar(from: content3)
+let calendar1 = client.parseCalendar(from: content1)
+let calendar2 = client.parseCalendar(from: content2)
+let calendar3 = client.parseCalendar(from: content3)
 
-let calendars = try await [calendar1, calendar2, calendar3]
+let calendars = try [calendar1, calendar2, calendar3]
 
 // Process calendars concurrently
-await withTaskGroup { group in
+withTaskGroup { group in
     for calendar in calendars {
         group.addTask {
-            let serialized = try await client.serializeCalendar(calendar)
+            let serialized = try client.serializeCalendar(calendar)
             // Process serialized calendar...
         }
     }
@@ -339,8 +338,8 @@ let firstMonday = RecurrencePatterns.monthly(
 
 ```swift
 do {
-    let calendar = try await client.parseCalendar(from: icalContent)
-    let serialized = try await client.serializeCalendar(calendar)
+    let calendar = try client.parseCalendar(from: icalContent)
+    let serialized = try client.serializeCalendar(calendar)
 } catch ICalendarError.invalidFormat(let message) {
     print("Invalid format: \(message)")
 } catch ICalendarError.missingRequiredProperty(let property) {
@@ -356,7 +355,7 @@ do {
 
 ```swift
 // Validate a calendar
-try await client.validateCalendar(calendar)
+try client.validateCalendar(calendar)
 
 // Validate email addresses
 ValidationUtilities.isValidEmail("user@example.com") // true
@@ -370,19 +369,19 @@ ValidationUtilities.isValidPercentComplete(75) // true (0-100)
 
 ```swift
 // Outlook-compatible format
-let outlookFormat = await serializer.serializeForOutlook(calendar)
+let outlookFormat = serializer.serializeForOutlook(calendar)
 
 // Google Calendar format
-let googleFormat = await serializer.serializeForGoogle(calendar)
+let googleFormat = serializer.serializeForGoogle(calendar)
 
 // Pretty-printed format for debugging
-let prettyFormat = await serializer.serializePretty(calendar)
+let prettyFormat = serializer.serializePretty(calendar)
 ```
 
 ## Statistics and Analysis
 
 ```swift
-let stats = await client.getCalendarStatistics(calendar)
+let stats = client.getCalendarStatistics(calendar)
 print(stats.description)
 // Output:
 // Calendar Statistics:
