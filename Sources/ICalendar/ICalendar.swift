@@ -179,12 +179,13 @@ public struct ICalendarClient: Sendable {
         duration: ICalDuration? = nil,
         location: String? = nil,
         description: String? = nil,
-        uid: String? = nil
+        uid: String? = nil,
+        timeZone: TimeZone = .current
     ) -> ICalEvent {
         var event = ICalEvent(uid: uid ?? UUID().uuidString, summary: summary)
 
-        event.dateTimeStamp = ICalDateTime(date: Date())
-        event.dateTimeStart = ICalDateTime(date: startDate)
+        event.dateTimeStamp = ICalDateTime(date: Date(), timeZone: timeZone)
+        event.dateTimeStart = ICalDateTime(date: startDate, timeZone: timeZone)
 
         if let endDate = endDate {
             event.dateTimeEnd = ICalDateTime(date: endDate)
@@ -209,12 +210,13 @@ public struct ICalendarClient: Sendable {
         date: Date,
         location: String? = nil,
         description: String? = nil,
-        uid: String? = nil
+        uid: String? = nil,
+        timeZone: TimeZone = .current
     ) -> ICalEvent {
         var event = ICalEvent(uid: uid ?? UUID().uuidString, summary: summary)
 
-        event.dateTimeStamp = ICalDateTime(date: Date())
-        event.dateTimeStart = ICalDateTime(date: date, isDateOnly: true)
+        event.dateTimeStamp = ICalDateTime(date: Date(), timeZone: timeZone)
+        event.dateTimeStart = ICalDateTime(date: date, timeZone: timeZone, isDateOnly: true)
 
         if let location = location {
             event.location = location
@@ -235,7 +237,8 @@ public struct ICalendarClient: Sendable {
         recurrenceRule: ICalRecurrenceRule,
         location: String? = nil,
         description: String? = nil,
-        uid: String? = nil
+        uid: String? = nil,
+        timeZone: TimeZone = .current
     ) -> ICalEvent {
         var event = createEvent(
             summary: summary,
@@ -243,7 +246,8 @@ public struct ICalendarClient: Sendable {
             endDate: endDate,
             location: location,
             description: description,
-            uid: uid
+            uid: uid,
+            timeZone: timeZone
         )
 
         event.recurrenceRule = recurrenceRule
@@ -258,14 +262,15 @@ public struct ICalendarClient: Sendable {
         dueDate: Date? = nil,
         priority: Int? = nil,
         description: String? = nil,
-        uid: String? = nil
+        uid: String? = nil,
+        timeZone: TimeZone = .current
     ) -> ICalTodo {
         var todo = ICalTodo(uid: uid ?? UUID().uuidString, summary: summary)
 
-        todo.dateTimeStamp = ICalDateTime(date: Date())
+        todo.dateTimeStamp = ICalDateTime(date: Date(), timeZone: timeZone)
 
         if let dueDate = dueDate {
-            todo.dueDate = ICalDateTime(date: dueDate)
+            todo.dueDate = ICalDateTime(date: dueDate, timeZone: timeZone)
         }
 
         if let priority = priority {
@@ -286,17 +291,19 @@ public struct ICalendarClient: Sendable {
         dueDate: Date? = nil,
         priority: Int? = nil,
         description: String? = nil,
-        uid: String? = nil
+        uid: String? = nil,
+        timeZone: TimeZone = .current
     ) -> ICalTodo {
         var todo = createTodo(
             summary: summary,
             dueDate: dueDate,
             priority: priority,
             description: description,
-            uid: uid
+            uid: uid,
+            timeZone: timeZone
         )
 
-        todo.dateTimeStart = ICalDateTime(date: startDate)
+        todo.dateTimeStart = ICalDateTime(date: startDate, timeZone: timeZone)
         return todo
     }
 
@@ -394,14 +401,15 @@ public struct ICalendarClient: Sendable {
         interval: Int = 1,
         daysOfWeek: [ICalWeekday] = [],
         count: Int? = nil,
-        until: Date? = nil
+        until: Date? = nil,
+        timeZone: TimeZone = .current
     ) -> ICalRecurrenceRule {
         let byDay = daysOfWeek.isEmpty ? nil : daysOfWeek.map { $0.rawValue }
         return ICalRecurrenceRule(
             frequency: .weekly,
             interval: interval,
             count: count,
-            until: until.map { ICalDateTime(date: $0) },
+            until: until.map { ICalDateTime(date: $0, timeZone: timeZone) },
             byDay: byDay
         )
     }
@@ -413,7 +421,8 @@ public struct ICalendarClient: Sendable {
         weekdayOrdinal: Int? = nil,
         weekday: ICalWeekday? = nil,
         count: Int? = nil,
-        until: Date? = nil
+        until: Date? = nil,
+        timeZone: TimeZone = .current
     ) -> ICalRecurrenceRule {
         var byMonthDay: [Int]? = nil
         var byDay: [String]? = nil
@@ -428,7 +437,7 @@ public struct ICalendarClient: Sendable {
             frequency: .monthly,
             interval: interval,
             count: count,
-            until: until.map { ICalDateTime(date: $0) },
+            until: until.map { ICalDateTime(date: $0, timeZone: timeZone) },
             byDay: byDay,
             byMonthDay: byMonthDay
         )
@@ -440,13 +449,14 @@ public struct ICalendarClient: Sendable {
         month: Int? = nil,
         dayOfMonth: Int? = nil,
         count: Int? = nil,
-        until: Date? = nil
+        until: Date? = nil,
+        timeZone: TimeZone = .current
     ) -> ICalRecurrenceRule {
         ICalRecurrenceRule(
             frequency: .yearly,
             interval: interval,
             count: count,
-            until: until.map { ICalDateTime(date: $0) },
+            until: until.map { ICalDateTime(date: $0, timeZone: timeZone) },
             byMonthDay: dayOfMonth.map { [$0] },
             byMonth: month.map { [$0] }
         )
@@ -523,7 +533,8 @@ public struct ICalendarClient: Sendable {
     public func updateEvent(
         in calendar: inout ICalendar,
         eventUID: String,
-        updateBlock: (inout ICalEvent) -> Void
+        updateBlock: (inout ICalEvent) -> Void,
+        timeZone: TimeZone = .current
     ) -> Bool {
         guard let eventIndex = calendar.events.firstIndex(where: { $0.uid == eventUID }) else {
             return false
@@ -537,7 +548,7 @@ public struct ICalendarClient: Sendable {
         event.sequence = currentSequence + 1
 
         // Update last modified timestamp
-        event.lastModified = ICalDateTime(date: Date.now)
+        event.lastModified = ICalDateTime(date: Date.now, timeZone: timeZone)
 
         // Update the event in the calendar
         calendar.components[
@@ -668,7 +679,8 @@ public struct ICalendarClient: Sendable {
     public func findEventsWithUpcomingAlarms(
         in calendar: ICalendar,
         within timeInterval: TimeInterval,
-        from referenceDate: Date = Date()
+        from referenceDate: Date = Date(),
+        timeZone: TimeZone = .current
     ) -> [(event: ICalEvent, alarm: ICalAlarm, triggerDate: Date)] {
         var upcomingAlarms: [(event: ICalEvent, alarm: ICalAlarm, triggerDate: Date)] = []
 
@@ -676,7 +688,7 @@ public struct ICalendarClient: Sendable {
             guard let eventStart = event.dateTimeStart?.date else { continue }
 
             for alarm in event.alarms {
-                if let triggerDate = calculateAlarmTriggerDate(alarm: alarm, eventStart: eventStart) {
+                if let triggerDate = calculateAlarmTriggerDate(alarm: alarm, eventStart: eventStart, timeZone: timeZone) {
                     let timeDifference = triggerDate.timeIntervalSince(referenceDate)
                     if timeDifference >= 0 && timeDifference <= timeInterval {
                         upcomingAlarms.append(
@@ -691,7 +703,7 @@ public struct ICalendarClient: Sendable {
     }
 
     /// Calculate when an alarm will trigger based on the event start time
-    private func calculateAlarmTriggerDate(alarm: ICalAlarm, eventStart: Date) -> Date? {
+    private func calculateAlarmTriggerDate(alarm: ICalAlarm, eventStart: Date, timeZone: TimeZone = .current) -> Date? {
         guard let trigger = alarm.trigger else { return nil }
 
         // Handle duration-based triggers (e.g., "-PT15M" for 15 minutes before)
@@ -703,7 +715,7 @@ public struct ICalendarClient: Sendable {
         }
 
         // Handle absolute date-time triggers
-        if let absoluteDate = ICalendarFormatter.parseDateTime(trigger) {
+        if let absoluteDate = ICalendarFormatter.parseDateTime(trigger, timeZone: timeZone) {
             return absoluteDate.date
         }
 
@@ -718,7 +730,8 @@ public struct ICalendarClient: Sendable {
         eventUID: String,
         newStartDate: Date,
         newEndDate: Date? = nil,
-        keepDuration: Bool = true
+        keepDuration: Bool = true,
+        timeZone: TimeZone = .current
     ) -> Bool {
         updateEvent(in: &calendar, eventUID: eventUID) { event in
             let originalDuration: TimeInterval?
@@ -731,12 +744,12 @@ public struct ICalendarClient: Sendable {
                 originalDuration = nil
             }
 
-            event.dateTimeStart = ICalDateTime(date: newStartDate)
+            event.dateTimeStart = ICalDateTime(date: newStartDate, timeZone: timeZone)
 
             if let newEndDate = newEndDate {
-                event.dateTimeEnd = ICalDateTime(date: newEndDate)
+                event.dateTimeEnd = ICalDateTime(date: newEndDate, timeZone: timeZone)
             } else if let duration = originalDuration {
-                event.dateTimeEnd = ICalDateTime(date: newStartDate.addingTimeInterval(duration))
+                event.dateTimeEnd = ICalDateTime(date: newStartDate.addingTimeInterval(duration), timeZone: timeZone)
             }
         }
     }
@@ -875,7 +888,9 @@ extension ICalendarClient {
         description: String? = nil,
         organizer: ICalAttendee,
         attendees: [ICalAttendee],
-        reminderMinutes: Int? = nil
+        reminderMinutes: Int? = nil,
+        timeZone: TimeZone = .current,
+        uid: String = UUID().uuidString
     ) -> ICalendar {
         var calendar = createCalendar()
         calendar.method = "REQUEST"
@@ -885,7 +900,9 @@ extension ICalendarClient {
             startDate: startDate,
             endDate: endDate,
             location: location,
-            description: description
+            description: description,
+            uid: uid,
+            timeZone: timeZone
         )
 
         event.organizer = organizer
@@ -908,7 +925,8 @@ extension ICalendarClient {
     /// Create a task list calendar
     public func createTaskList(
         title: String,
-        tasks: [(summary: String, dueDate: Date?, priority: Int?)]
+        tasks: [(summary: String, dueDate: Date?, priority: Int?)],
+        timeZone: TimeZone = .current
     ) -> ICalendar {
         var calendar = createCalendar()
 
@@ -916,7 +934,8 @@ extension ICalendarClient {
             let todo = createTodo(
                 summary: task.summary,
                 dueDate: task.dueDate,
-                priority: task.priority
+                priority: task.priority,
+                timeZone: timeZone
             )
             calendar.addTodo(todo)
         }
@@ -989,7 +1008,7 @@ extension ICalEvent {
     }
 
     /// Check if this event is currently happening
-    public func isHappeningNow(at date: Date = Date()) -> Bool {
+    public func isHappeningNow(at date: Date = Date(), timeZone: TimeZone = .current) -> Bool {
         guard let start = dateTimeStart?.date else { return false }
 
         if let end = dateTimeEnd?.date {
@@ -999,22 +1018,27 @@ extension ICalEvent {
             return date >= start && date <= end
         } else {
             // For events without end time or duration, check if it's the same day
-            return Calendar.current.isDate(date, inSameDayAs: start)
+            var calendar = Calendar.current
+            calendar.timeZone = timeZone
+            return calendar.isDate(start, inSameDayAs: date)
         }
     }
 
     /// Check if this event occurs on a specific date
-    public func occursOn(date: Date) -> Bool {
+    public func occursOn(date: Date, timeZone: TimeZone = .current) -> Bool {
         guard let start = dateTimeStart?.date else { return false }
+        
+        var calendar = Calendar.current
+        calendar.timeZone = timeZone
 
         if isAllDay {
-            return Calendar.current.isDate(start, inSameDayAs: date)
+            return calendar.isDate(start, inSameDayAs: date)
         } else {
             if let end = dateTimeEnd?.date {
-                return date >= Calendar.current.startOfDay(for: start)
-                    && date <= Calendar.current.startOfDay(for: end).addingTimeInterval(86400)
+                return date >= calendar.startOfDay(for: start)
+                    && date <= calendar.startOfDay(for: end).addingTimeInterval(86400)
             } else {
-                return Calendar.current.isDate(start, inSameDayAs: date)
+                return calendar.isDate(start, inSameDayAs: date)
             }
         }
     }
@@ -1110,7 +1134,8 @@ extension ICalendar {
     /// Update an event by UID using a closure
     public mutating func updateEvent(
         withUID uid: String,
-        updateBlock: (inout ICalEvent) -> Void
+        updateBlock: (inout ICalEvent) -> Void,
+        timeZone: TimeZone = .current
     )
         -> Bool
     {
@@ -1131,7 +1156,7 @@ extension ICalendar {
             // Update sequence number and last modified
             let currentSequence = event.sequence ?? 0
             event.sequence = currentSequence + 1
-            event.lastModified = ICalDateTime(date: Date())
+            event.lastModified = ICalDateTime(date: Date(), timeZone: timeZone)
 
             components[index] = event
             return true

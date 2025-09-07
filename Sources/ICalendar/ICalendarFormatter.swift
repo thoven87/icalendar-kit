@@ -38,24 +38,24 @@ internal struct ICalendarFormatter {
         }
     }
 
-    static func parseDateTime(_ value: String) -> ICalDateTime? {
+    static func parseDateTime(_ value: String, timeZone: TimeZone = .current) -> ICalDateTime? {
         let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
 
         // Check for date-only format (YYYYMMDD)
         if trimmedValue.count == 8, !trimmedValue.contains("T") {
             guard let date = dateOnlyFormatter.date(from: trimmedValue) else { return nil }
-            return ICalDateTime(date: date, timeZone: nil, isDateOnly: true)
+            return ICalDateTime(date: date, timeZone: timeZone, isDateOnly: true)
         }
 
         // Check for UTC format (YYYYMMDDTHHMMSSZ)
         if trimmedValue.hasSuffix("Z") {
             guard let date = iso8601BasicFormatter.date(from: trimmedValue) else { return nil }
-            return ICalDateTime(date: date, timeZone: TimeZone(abbreviation: "UTC"), isDateOnly: false)
+            return ICalDateTime(date: date, timeZone: timeZone, isDateOnly: false)
         }
 
         // Local time format (YYYYMMDDTHHMMSS)
         guard let date = iso8601LocalFormatter.date(from: trimmedValue) else { return nil }
-        return ICalDateTime(date: date, timeZone: nil, isDateOnly: false)
+        return ICalDateTime(date: date, timeZone: timeZone, isDateOnly: false)
     }
 
     // MARK: - Duration Formatting
