@@ -1027,7 +1027,7 @@ extension ICalEvent {
     /// Check if this event occurs on a specific date
     public func occursOn(date: Date, timeZone: TimeZone = .current) -> Bool {
         guard let start = dateTimeStart?.date else { return false }
-        
+
         var calendar = Calendar.current
         calendar.timeZone = timeZone
 
