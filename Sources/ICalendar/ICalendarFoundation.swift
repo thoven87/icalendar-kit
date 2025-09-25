@@ -166,7 +166,65 @@ public enum ICalWeekday: String, Sendable, CaseIterable, Codable {
     case saturday = "SA"
 }
 
-/// Represents a recurrence rule
+/// Calendar scale for recurrence rules (RFC 7529)
+///
+/// Represents different calendar systems that can be used in recurrence calculations.
+/// Uses Foundation's Calendar.Identifier for compatibility
+public enum ICalRecurrenceScale: String, Sendable, CaseIterable, Codable {
+    case gregorian = "GREGORIAN"
+    case hebrew = "HEBREW"
+    case islamic = "ISLAMIC"
+    case chinese = "CHINESE"
+    case buddhist = "BUDDHIST"
+    case japanese = "JAPANESE"
+    case persian = "PERSIAN"
+    case indian = "INDIAN"
+    case coptic = "COPTIC"
+    case ethiopic = "ETHIOPIC"
+
+    /// Convert to Foundation Calendar.Identifier
+    public var foundationIdentifier: Calendar.Identifier {
+        switch self {
+        case .gregorian: return .gregorian
+        case .hebrew: return .hebrew
+        case .islamic: return .islamic
+        case .chinese: return .chinese
+        case .buddhist: return .buddhist
+        case .japanese: return .japanese
+        case .persian: return .persian
+        case .indian: return .indian
+        case .coptic: return .coptic
+        case .ethiopic: return .ethiopicAmeteMihret
+        }
+    }
+
+    /// Create from Foundation Calendar.Identifier
+    public init?(foundationIdentifier: Calendar.Identifier) {
+        switch foundationIdentifier {
+        case .gregorian: self = .gregorian
+        case .hebrew: self = .hebrew
+        case .islamic: self = .islamic
+        case .chinese: self = .chinese
+        case .buddhist: self = .buddhist
+        case .japanese: self = .japanese
+        case .persian: self = .persian
+        case .indian: self = .indian
+        case .coptic: self = .coptic
+        case .ethiopicAmeteMihret: self = .ethiopic
+        default: return nil
+        }
+    }
+
+    /// Get Foundation Calendar for this scale
+    public var foundationCalendar: Calendar {
+        Calendar(identifier: foundationIdentifier)
+    }
+}
+
+/// Represents a recurrence rule with RFC 7529 RSCALE support
+///
+/// Enhanced recurrence rule that supports non-Gregorian calendar systems
+/// for international and religious applications.
 public struct ICalRecurrenceRule: Sendable, Codable, Hashable {
     public let frequency: ICalRecurrenceFrequency
     public let interval: Int?
@@ -183,6 +241,9 @@ public struct ICalRecurrenceRule: Sendable, Codable, Hashable {
     public let bySetPos: [Int]?
     public let weekStart: ICalWeekday?
 
+    /// RFC 7529: Calendar scale for non-Gregorian recurrence
+    public let rscale: ICalRecurrenceScale?
+
     public init(
         frequency: ICalRecurrenceFrequency,
         interval: Int? = nil,
@@ -197,7 +258,8 @@ public struct ICalRecurrenceRule: Sendable, Codable, Hashable {
         byWeekNo: [Int]? = nil,
         byMonth: [Int]? = nil,
         bySetPos: [Int]? = nil,
-        weekStart: ICalWeekday? = nil
+        weekStart: ICalWeekday? = nil,
+        rscale: ICalRecurrenceScale? = nil
     ) {
         self.frequency = frequency
         self.interval = interval
@@ -213,6 +275,12 @@ public struct ICalRecurrenceRule: Sendable, Codable, Hashable {
         self.byMonth = byMonth
         self.bySetPos = bySetPos
         self.weekStart = weekStart
+        self.rscale = rscale
+    }
+
+    /// Get the Foundation Calendar for recurrence calculations
+    public var calendar: Calendar {
+        rscale?.foundationCalendar ?? Calendar(identifier: .gregorian)
     }
 }
 
@@ -290,6 +358,370 @@ public enum ICalRelationshipType: String, Sendable, CaseIterable, Codable {
     case sibling = "SIBLING"
 }
 
+// MARK: - RFC 7986 Extension Types
+
+/// Display types for IMAGE property
+public enum ICalDisplayType: String, Sendable, CaseIterable, Codable {
+    case badge = "BADGE"
+    case graphic = "GRAPHIC"
+    case fullsize = "FULLSIZE"
+    case thumbnail = "THUMBNAIL"
+}
+
+/// Feature types for CONFERENCE property
+public enum ICalFeatureType: String, Sendable, CaseIterable, Codable {
+    case audio = "AUDIO"
+    case chat = "CHAT"
+    case feed = "FEED"
+    case moderator = "MODERATOR"
+    case phone = "PHONE"
+    case screen = "SCREEN"
+    case video = "VIDEO"
+}
+
+/// Represents geographic coordinates
+public struct ICalGeoCoordinate: Sendable, Codable, Hashable {
+    public let latitude: Double
+    public let longitude: Double
+
+    public init(latitude: Double, longitude: Double) {
+        self.latitude = latitude
+        self.longitude = longitude
+    }
+
+    /// String representation in "latitude;longitude" format
+    public var stringValue: String {
+        String(format: "%.6f;%.6f", latitude, longitude)
+    }
+
+    /// Initialize from string in "latitude;longitude" format
+    public init?(from string: String) {
+        let components = string.components(separatedBy: ";")
+        guard components.count == 2,
+            let lat = Double(components[0]),
+            let lon = Double(components[1])
+        else {
+            return nil
+        }
+        self.latitude = lat
+        self.longitude = lon
+    }
+}
+
+/// Represents timezone URL generation utilities
+public struct ICalTimeZoneURLGenerator: Sendable {
+
+    /// Generate TZURL for a given timezone identifier
+    public static func generateTZURL(for timezoneId: String) -> String {
+        "http://tzurl.org/zoneinfo-outlook/\(timezoneId)"
+    }
+
+    /// Generate alternative TZURL for a given timezone identifier
+    public static func generateAlternativeTZURL(for timezoneId: String) -> String {
+        "https://www.tzurl.org/zoneinfo-outlook/\(timezoneId)"
+    }
+}
+
+// MARK: - Enhanced ATTACH Property Support
+
+/// Represents attachment types for ATTACH property
+public enum ICalAttachmentType: String, Sendable, CaseIterable, Codable {
+    case uri = "URI"
+    case binary = "BINARY"
+}
+
+/// Represents an iCalendar attachment
+public struct ICalAttachment: Sendable, Codable, Hashable {
+    public let type: ICalAttachmentType
+    public let value: String
+    public let mediaType: String?
+    public let encoding: String?
+
+    public init(uri: String, mediaType: String? = nil) {
+        self.type = .uri
+        self.value = uri
+        self.mediaType = mediaType
+        self.encoding = nil
+    }
+
+    public init(binaryData: Data, mediaType: String? = nil) {
+        self.type = .binary
+        self.value = binaryData.base64EncodedString()
+        self.mediaType = mediaType
+        self.encoding = "BASE64"
+    }
+
+    /// Get the decoded binary data (if this is a binary attachment)
+    public var decodedData: Data? {
+        guard type == .binary else { return nil }
+        return Data(base64Encoded: value)
+    }
+}
+
+// MARK: - RFC 9074 VALARM Extensions
+
+/// Enhanced alarm action types (RFC 9074)
+public enum ICalAlarmActionExtended: String, Sendable, CaseIterable, Codable {
+    case display = "DISPLAY"
+    case audio = "AUDIO"
+    case email = "EMAIL"
+    case proximity = "PROXIMITY"  // RFC 9074
+}
+
+/// Proximity trigger for location-based alarms (RFC 9074)
+public struct ICalProximityTrigger: Sendable, Codable, Hashable {
+    public let latitude: Double
+    public let longitude: Double
+    public let radius: Double  // meters
+    public let entering: Bool  // true for entering, false for leaving
+
+    public init(latitude: Double, longitude: Double, radius: Double, entering: Bool = true) {
+        self.latitude = latitude
+        self.longitude = longitude
+        self.radius = radius
+        self.entering = entering
+    }
+
+    /// String representation for PROXIMITY-TRIGGER property
+    public var stringValue: String {
+        let action = entering ? "ENTERING" : "LEAVING"
+        return String(format: "%.6f;%.6f;%.6f;%@", latitude, longitude, radius, action)
+    }
+
+    /// Initialize from PROXIMITY-TRIGGER string
+    public init?(from string: String) {
+        let components = string.components(separatedBy: ";")
+        guard components.count >= 4,
+            let lat = Double(components[0]),
+            let lon = Double(components[1]),
+            let rad = Double(components[2])
+        else { return nil }
+
+        self.latitude = lat
+        self.longitude = lon
+        self.radius = rad
+        self.entering = components[3].uppercased() == "ENTERING"
+    }
+}
+
+/// Alarm acknowledgment information (RFC 9074)
+public struct ICalAlarmAcknowledgment: Sendable, Codable, Hashable {
+    public let acknowledgedAt: ICalDateTime
+    public let acknowledgedBy: String?  // attendee who acknowledged
+
+    public init(acknowledgedAt: ICalDateTime, acknowledgedBy: String? = nil) {
+        self.acknowledgedAt = acknowledgedAt
+        self.acknowledgedBy = acknowledgedBy
+    }
+}
+
+// MARK: - RFC 9073 Event Publishing Extensions
+
+/// Structured data types for STRUCTURED-DATA property (RFC 9073)
+public enum ICalStructuredDataType: String, Sendable, CaseIterable, Codable {
+    case json = "application/json"
+    case xml = "application/xml"
+    case vcard = "text/vcard"
+    case custom = "text/plain"
+}
+
+/// Structured data container (RFC 9073)
+public struct ICalStructuredData: Sendable, Codable, Hashable {
+    public let type: ICalStructuredDataType
+    public let data: String
+    public let schema: String?  // Schema identifier
+
+    public init(type: ICalStructuredDataType, data: String, schema: String? = nil) {
+        self.type = type
+        self.data = data
+        self.schema = schema
+    }
+}
+
+/// Enhanced location information for VLOCATION (RFC 9073)
+public struct ICalEnhancedLocation: Sendable, Codable, Hashable {
+    public let name: String
+    public let description: String?
+    public let geo: ICalGeoCoordinate?
+    public let address: String?
+    public let url: String?
+    public let capacity: Int?
+    public let accessibilityFeatures: [String]?
+    public let structuredData: ICalStructuredData?
+
+    public init(
+        name: String,
+        description: String? = nil,
+        geo: ICalGeoCoordinate? = nil,
+        address: String? = nil,
+        url: String? = nil,
+        capacity: Int? = nil,
+        accessibilityFeatures: [String]? = nil,
+        structuredData: ICalStructuredData? = nil
+    ) {
+        self.name = name
+        self.description = description
+        self.geo = geo
+        self.address = address
+        self.url = url
+        self.capacity = capacity
+        self.accessibilityFeatures = accessibilityFeatures
+        self.structuredData = structuredData
+    }
+}
+
+/// Resource information for VRESOURCE (RFC 9073)
+public struct ICalResource: Sendable, Codable, Hashable {
+    public let name: String
+    public let description: String?
+    public let resourceType: String  // Equipment, Room, Person, etc.
+    public let capacity: Int?
+    public let features: [String]?
+    public let contact: String?
+    public let bookingUrl: String?
+    public let cost: String?
+
+    public init(
+        name: String,
+        description: String? = nil,
+        resourceType: String,
+        capacity: Int? = nil,
+        features: [String]? = nil,
+        contact: String? = nil,
+        bookingUrl: String? = nil,
+        cost: String? = nil
+    ) {
+        self.name = name
+        self.description = description
+        self.resourceType = resourceType
+        self.capacity = capacity
+        self.features = features
+        self.contact = contact
+        self.bookingUrl = bookingUrl
+        self.cost = cost
+    }
+}
+
+// MARK: - RFC 9253 Enhanced Relationships
+
+/// Enhanced relationship types (RFC 9253)
+public enum ICalEnhancedRelationshipType: String, Sendable, CaseIterable, Codable {
+    case parent = "PARENT"
+    case child = "CHILD"
+    case sibling = "SIBLING"
+    case finishToStart = "FINISHTOSTART"
+    case finishToFinish = "FINISHTOFINISH"
+    case startToStart = "STARTTOSTART"
+    case startToFinish = "STARTTOFINISH"
+    case dependsOn = "DEPENDS-ON"
+    case blocks = "BLOCKS"
+}
+
+/// Link to external resources (RFC 9253)
+public struct ICalLink: Sendable, Codable, Hashable {
+    public let href: String
+    public let rel: String?  // relationship type
+    public let type: String?  // media type
+    public let title: String?
+    public let language: String?
+
+    public init(href: String, rel: String? = nil, type: String? = nil, title: String? = nil, language: String? = nil) {
+        self.href = href
+        self.rel = rel
+        self.type = type
+        self.title = title
+        self.language = language
+    }
+}
+
+/// Concept for semantic categorization (RFC 9253)
+public struct ICalConcept: Sendable, Codable, Hashable {
+    public let identifier: String
+    public let scheme: String?  // URI of the concept scheme
+    public let label: String?
+    public let definition: String?
+
+    public init(identifier: String, scheme: String? = nil, label: String? = nil, definition: String? = nil) {
+        self.identifier = identifier
+        self.scheme = scheme
+        self.label = label
+        self.definition = definition
+    }
+}
+
+// MARK: - RFC 7953 Availability
+
+/// Busy/Free status types (RFC 7953)
+public enum ICalBusyType: String, Sendable, CaseIterable, Codable {
+    case busy = "BUSY"
+    case free = "FREE"
+    case busyUnavailable = "BUSY-UNAVAILABLE"
+    case busyTentative = "BUSY-TENTATIVE"
+}
+
+/// Availability information (RFC 7953)
+public struct ICalAvailability: Sendable, Codable, Hashable {
+    public let start: ICalDateTime
+    public let end: ICalDateTime?
+    public let duration: ICalDuration?
+    public let busyType: ICalBusyType
+    public let summary: String?
+    public let description: String?
+    public let location: String?
+
+    public init(
+        start: ICalDateTime,
+        end: ICalDateTime? = nil,
+        duration: ICalDuration? = nil,
+        busyType: ICalBusyType,
+        summary: String? = nil,
+        description: String? = nil,
+        location: String? = nil
+    ) {
+        self.start = start
+        self.end = end
+        self.duration = duration
+        self.busyType = busyType
+        self.summary = summary
+        self.description = description
+        self.location = location
+    }
+}
+
+// MARK: - RFC 6047 iMIP Transport
+
+/// Email transport information for iMIP (RFC 6047)
+public struct ICalEmailTransport: Sendable, Codable, Hashable {
+    public let from: String
+    public let to: [String]
+    public let cc: [String]?
+    public let bcc: [String]?
+    public let subject: String
+    public let messageId: String?
+    public let inReplyTo: String?
+    public let references: [String]?
+
+    public init(
+        from: String,
+        to: [String],
+        cc: [String]? = nil,
+        bcc: [String]? = nil,
+        subject: String,
+        messageId: String? = nil,
+        inReplyTo: String? = nil,
+        references: [String]? = nil
+    ) {
+        self.from = from
+        self.to = to
+        self.cc = cc
+        self.bcc = bcc
+        self.subject = subject
+        self.messageId = messageId
+        self.inReplyTo = inReplyTo
+        self.references = references
+    }
+}
+
 // MARK: - Error Types
 
 /// Errors that can occur during iCalendar parsing or creation
@@ -304,6 +736,8 @@ public enum ICalendarError: Error, Sendable {
     case encodingError(String)
     case decodingError(String)
     case invalidParameterValue(parameter: String, value: String)
+    case dateCalculationFailed(String)
+    case invalidCalendarOperation(String)
 }
 
 // MARK: - Constants
@@ -356,6 +790,46 @@ public struct ICalPropertyName {
     public static let timeZoneOffsetFrom = "TZOFFSETFROM"
     public static let timeZoneOffsetTo = "TZOFFSETTO"
     public static let timeZoneUrl = "TZURL"
+
+    // RFC 7986 Extension properties
+    public static let name = "NAME"
+    public static let color = "COLOR"
+    public static let image = "IMAGE"
+    public static let source = "SOURCE"
+    public static let refreshInterval = "REFRESH-INTERVAL"
+    public static let conference = "CONFERENCE"
+    public static let geo = "GEO"
+
+    // X-WR Extension properties (Apple/CalDAV)
+    public static let xWrCalName = "X-WR-CALNAME"
+    public static let xWrCalDesc = "X-WR-CALDESC"
+    public static let xWrRelCalId = "X-WR-RELCALID"
+    public static let xWrTimeZone = "X-WR-TIMEZONE"
+    public static let xPublishedTTL = "X-PUBLISHED-TTL"
+    public static let xLicLocation = "X-LIC-LOCATION"
+
+    // RFC 7529 Non-Gregorian Recurrence
+    public static let rscale = "RSCALE"
+
+    // RFC 9074 VALARM Extensions
+    public static let proximityTrigger = "PROXIMITY-TRIGGER"
+    public static let acknowledged = "ACKNOWLEDGED"
+
+    // RFC 9073 Event Publishing Extensions
+    public static let structuredData = "STRUCTURED-DATA"
+    public static let venue = "VENUE"
+    public static let enhancedLocation = "ENHANCED-LOCATION"
+    public static let resource = "RESOURCE"
+
+    // RFC 9253 Enhanced Relationships
+    public static let link = "LINK"
+    public static let concept = "CONCEPT"
+    public static let refId = "REFID"
+
+    // RFC 7953 Availability
+    public static let busyType = "BUSYTYPE"
+    public static let available = "AVAILABLE"
+    public static let busy = "BUSY"
 }
 
 /// Common iCalendar parameter names
@@ -367,7 +841,7 @@ public struct ICalParameterName {
     public static let delegatedTo = "DELEGATED-TO"
     public static let directory = "DIR"
     public static let encoding = "ENCODING"
-    public static let formatType = "FMTYPE"
+    public static let formatType = "FMTTYPE"
     public static let freeBusyType = "FBTYPE"
     public static let language = "LANGUAGE"
     public static let member = "MEMBER"
@@ -380,4 +854,30 @@ public struct ICalParameterName {
     public static let sentBy = "SENT-BY"
     public static let timeZoneId = "TZID"
     public static let valueType = "VALUE"
+
+    // RFC 7986 Extension parameters
+    public static let display = "DISPLAY"
+    public static let email = "EMAIL"
+    public static let feature = "FEATURE"
+    public static let label = "LABEL"
+
+    // RFC 7529 Non-Gregorian parameters
+    public static let rscale = "RSCALE"
+
+    // RFC 9074 VALARM Extension parameters
+    public static let proximity = "PROXIMITY"
+    public static let acknowledgedBy = "ACKNOWLEDGED-BY"
+
+    // RFC 9073 Event Publishing parameters
+    public static let schema = "SCHEMA"
+    public static let structuredDataType = "STRUCTURED-DATA-TYPE"
+
+    // RFC 9253 Enhanced Relationship parameters
+    public static let href = "HREF"
+    public static let rel = "REL"
+    public static let title = "TITLE"
+    public static let scheme = "SCHEME"
+
+    // RFC 7953 Availability parameters
+    public static let busyStatus = "BUSY-STATUS"
 }

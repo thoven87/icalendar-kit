@@ -4,13 +4,13 @@ import Foundation
 
 extension Date {
     /// Create an ICalDateTime from this date
-    public func asICalDateTime(timeZone: TimeZone = .current, isDateOnly: Bool = false) -> ICalDateTime {
+    public func asICalDateTime(timeZone: TimeZone = .gmt, isDateOnly: Bool = false) -> ICalDateTime {
         ICalDateTime(date: self, timeZone: timeZone, isDateOnly: isDateOnly)
     }
 
     /// Create an all-day ICalDateTime from this date
-    public func asICalDateOnly(timeZone: TimeZone = .current) -> ICalDateTime {
-        ICalDateTime(date: self, timeZone: timeZone, isDateOnly: true)
+    public func asICalDateOnly(timeZone: TimeZone = .gmt) -> ICalDateTime {
+        ICalDateTime(date: self, timeZone: nil, isDateOnly: true)
     }
 
     /// Create a UTC ICalDateTime from this date
@@ -334,7 +334,7 @@ public struct ICalEventBuilder: Sendable {
 public struct ICalTodoBuilder: Sendable {
     private var todo: ICalTodo
 
-    public init(summary: String, uid: String? = nil, timeZone: TimeZone = .current) {
+    public init(summary: String, uid: String? = nil, timeZone: TimeZone = .gmt) {
         self.todo = ICalTodo(uid: uid ?? UUID().uuidString, summary: summary)
         self.todo.dateTimeStamp = ICalDateTime(date: Date(), timeZone: timeZone)
     }
@@ -345,13 +345,13 @@ public struct ICalTodoBuilder: Sendable {
         return builder
     }
 
-    public func startDate(_ date: Date, timeZone: TimeZone = .current) -> ICalTodoBuilder {
+    public func startDate(_ date: Date, timeZone: TimeZone = .gmt) -> ICalTodoBuilder {
         var builder = self
         builder.todo.dateTimeStart = ICalDateTime(date: date, timeZone: timeZone)
         return builder
     }
 
-    public func dueDate(_ date: Date, timeZone: TimeZone = .current) -> ICalTodoBuilder {
+    public func dueDate(_ date: Date, timeZone: TimeZone = .gmt) -> ICalTodoBuilder {
         var builder = self
         builder.todo.dueDate = ICalDateTime(date: date, timeZone: timeZone)
         return builder
