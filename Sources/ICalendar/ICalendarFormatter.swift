@@ -30,7 +30,7 @@ internal struct ICalendarFormatter {
     static func format(dateTime: ICalDateTime) -> String {
         if dateTime.isDateOnly {
             return dateOnlyFormatter.string(from: dateTime.date)
-        } else if dateTime.timeZone == nil || dateTime.timeZone?.abbreviation() == "UTC" {
+        } else if dateTime.timeZone == nil || dateTime.timeZone?.identifier == "UTC" || dateTime.timeZone?.identifier == "GMT" {
             return iso8601BasicFormatter.string(from: dateTime.date)
         } else {
             iso8601LocalFormatter.timeZone = dateTime.timeZone
@@ -38,22 +38,22 @@ internal struct ICalendarFormatter {
         }
     }
 
-    static func parseDateTime(_ value: String, timeZone: TimeZone = .current) -> ICalDateTime? {
+    static func parseDateTime(_ value: String, timeZone: TimeZone = .gmt) -> ICalDateTime? {
         let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Check for date-only format (YYYYMMDD)
+        // Check for date-only format (YYYYMMDD) - timezone should be nil for date-only events
         if trimmedValue.count == 8, !trimmedValue.contains("T") {
             guard let date = dateOnlyFormatter.date(from: trimmedValue) else { return nil }
-            return ICalDateTime(date: date, timeZone: timeZone, isDateOnly: true)
+            return ICalDateTime(date: date, timeZone: nil, isDateOnly: true)
         }
 
-        // Check for UTC format (YYYYMMDDTHHMMSSZ)
+        // Check for UTC format (YYYYMMDDTHHMMSSZ) - MUST use UTC timezone, not parameter
         if trimmedValue.hasSuffix("Z") {
             guard let date = iso8601BasicFormatter.date(from: trimmedValue) else { return nil }
             return ICalDateTime(date: date, timeZone: timeZone, isDateOnly: false)
         }
 
-        // Local time format (YYYYMMDDTHHMMSS)
+        // Local time format (YYYYMMDDTHHMMSS) - use provided timezone
         guard let date = iso8601LocalFormatter.date(from: trimmedValue) else { return nil }
         return ICalDateTime(date: date, timeZone: timeZone, isDateOnly: false)
     }
@@ -222,6 +222,11 @@ internal struct ICalendarFormatter {
             parts.append("WKST=\(weekStart.rawValue)")
         }
 
+        // RFC 7529: RSCALE parameter for non-Gregorian calendars
+        if let rscale = recurrenceRule.rscale {
+            parts.append("RSCALE=\(rscale.rawValue)")
+        }
+
         return parts.joined(separator: ";")
     }
 
@@ -243,6 +248,7 @@ internal struct ICalendarFormatter {
         var byMonth: [Int]?
         var bySetPos: [Int]?
         var weekStart: ICalWeekday?
+        var rscale: ICalRecurrenceScale?
 
         for part in parts {
             let keyValue = part.split(separator: "=", maxSplits: 1)
@@ -280,15 +286,17 @@ internal struct ICalendarFormatter {
                 bySetPos = val.split(separator: ",").compactMap { Int($0) }
             case "WKST":
                 weekStart = ICalWeekday(rawValue: val)
+            case "RSCALE":
+                rscale = ICalRecurrenceScale(rawValue: val)
             default:
                 break
             }
         }
 
-        guard let freq = frequency else { return nil }
+        guard let frequency = frequency else { return nil }
 
         return ICalRecurrenceRule(
-            frequency: freq,
+            frequency: frequency,
             interval: interval,
             count: count,
             until: until,
@@ -301,7 +309,8 @@ internal struct ICalendarFormatter {
             byWeekNo: byWeekNo,
             byMonth: byMonth,
             bySetPos: bySetPos,
-            weekStart: weekStart
+            weekStart: weekStart,
+            rscale: rscale
         )
     }
 
@@ -569,6 +578,46 @@ internal struct ICalendarFormatter {
         }
 
         return sign * totalSeconds
+    }
+
+    // MARK: - Base64 Encoding/Decoding (RFC 7986 IMAGE property support)
+
+    /// Encode data as base64 string for BINARY image properties
+    static func encodeBase64(_ data: Data) -> String {
+        data.base64EncodedString()
+    }
+
+    /// Decode base64 string to data for BINARY image properties
+    static func decodeBase64(_ string: String) -> Data? {
+        Data(base64Encoded: string)
+    }
+
+    /// Create IMAGE property with binary data (base64 encoded)
+    static func createBinaryImageProperty(_ data: Data, mediaType: String? = nil) -> ICalProperty {
+        let base64String = encodeBase64(data)
+        var parameters: [String: String] = [
+            ICalParameterName.encoding: "BASE64",
+            ICalParameterName.valueType: "BINARY",
+        ]
+
+        if let mediaType = mediaType {
+            parameters[ICalParameterName.formatType] = mediaType
+        }
+
+        return ICalProperty(name: ICalPropertyName.image, value: base64String, parameters: parameters)
+    }
+
+    /// Create IMAGE property with URI reference
+    static func createURIImageProperty(_ uri: String, mediaType: String? = nil) -> ICalProperty {
+        var parameters: [String: String] = [
+            ICalParameterName.valueType: "URI"
+        ]
+
+        if let mediaType = mediaType {
+            parameters[ICalParameterName.formatType] = mediaType
+        }
+
+        return ICalProperty(name: ICalPropertyName.image, value: uri, parameters: parameters)
     }
 }
 

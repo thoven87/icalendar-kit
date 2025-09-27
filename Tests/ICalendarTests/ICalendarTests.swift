@@ -142,7 +142,7 @@ func testCalendarSerialization() throws {
 
 @Test("Calendar Parsing")
 func testCalendarParsing() throws {
-    let client = ICalendarClient()
+
     let icalString = """
         BEGIN:VCALENDAR
         VERSION:2.0
@@ -159,7 +159,8 @@ func testCalendarParsing() throws {
         END:VCALENDAR
         """
 
-    let calendar = try client.parseCalendar(from: icalString)
+    let parser = ICalendarParser()
+    let calendar = try parser.parse(icalString)
 
     #expect(calendar.version == "2.0")
     #expect(calendar.productId == "-//Test//EN")

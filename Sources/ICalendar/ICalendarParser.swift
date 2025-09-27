@@ -164,6 +164,18 @@ public struct ICalendarParser: Sendable {
             return ICalTimeZoneComponent(properties: properties, components: components, isStandard: true)
         case "DAYLIGHT":
             return ICalTimeZoneComponent(properties: properties, components: components, isStandard: false)
+        case "VVENUE":
+            return ICalVenue(properties: properties, components: components)
+        case "VLOCATION":
+            return ICalLocation(properties: properties, components: components)
+        case "VRESOURCE":
+            return ICalResourceComponent(properties: properties, components: components)
+        case "VAVAILABILITY":
+            return ICalAvailabilityComponent(properties: properties, components: components)
+        case "AVAILABLE":
+            return ICalAvailableComponent(properties: properties, components: components)
+        case "BUSY":
+            return ICalBusyComponent(properties: properties, components: components)
         default:
             throw ICalendarError.unsupportedComponent(name)
         }
@@ -276,6 +288,11 @@ public struct ICalendarParser: Sendable {
                 // DESCRIPTION is required for display alarms
                 guard alarm.description != nil else {
                     throw ICalendarError.missingRequiredProperty("DESCRIPTION")
+                }
+            case .proximity:
+                // PROXIMITY-TRIGGER is required for proximity alarms
+                guard alarm.proximityTrigger != nil else {
+                    throw ICalendarError.missingRequiredProperty("PROXIMITY-TRIGGER")
                 }
             case .email:
                 // DESCRIPTION and SUMMARY are required for email alarms
