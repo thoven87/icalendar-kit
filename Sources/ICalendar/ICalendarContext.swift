@@ -369,7 +369,7 @@ extension ICalEvent {
         let effectiveContext = context ?? self.context
         let effectiveTimeZone = timeZone ?? effectiveContext.defaultTimeZone
 
-        if isAllDay {
+        if dateTimeStart?.isDateOnly == true {
             return effectiveContext.dateOccursOn(start, day: date, timeZone: effectiveTimeZone)
         } else {
             if let end = dateTimeEnd?.date {
@@ -432,22 +432,22 @@ extension ICalEvent {
             // Add interval based on frequency
             switch rule.frequency {
             case .daily:
-                guard let nextDate = cal.date(byAdding: .day, value: rule.interval ?? 1, to: currentDate) else {
+                guard let nextDate = cal.date(byAdding: .day, value: rule.interval, to: currentDate) else {
                     break  // Stop if date calculation fails
                 }
                 currentDate = nextDate
             case .weekly:
-                guard let nextDate = cal.date(byAdding: .weekOfYear, value: rule.interval ?? 1, to: currentDate) else {
+                guard let nextDate = cal.date(byAdding: .weekOfYear, value: rule.interval, to: currentDate) else {
                     break  // Stop if date calculation fails
                 }
                 currentDate = nextDate
             case .monthly:
-                guard let nextDate = cal.date(byAdding: .month, value: rule.interval ?? 1, to: currentDate) else {
+                guard let nextDate = cal.date(byAdding: .month, value: rule.interval, to: currentDate) else {
                     break  // Stop if date calculation fails
                 }
                 currentDate = nextDate
             case .yearly:
-                guard let nextDate = cal.date(byAdding: .year, value: rule.interval ?? 1, to: currentDate) else {
+                guard let nextDate = cal.date(byAdding: .year, value: rule.interval, to: currentDate) else {
                     break  // Stop if date calculation fails
                 }
                 currentDate = nextDate
@@ -493,48 +493,6 @@ extension ICalendar {
             let occurrences = event.occurrences(from: startDate, to: endDate, context: effectiveContext)
             return !occurrences.isEmpty
         }
-    }
-}
-
-// MARK: - Client Extensions
-
-extension ICalendarClient {
-    /// Create Hebrew calendar
-    public func createHebrewCalendar() -> ICalendar {
-        createCalendar(context: .hebrew)
-    }
-
-    /// Create Islamic calendar
-    public func createIslamicCalendar() -> ICalendar {
-        createCalendar(context: .islamic)
-    }
-
-    /// Create Chinese calendar
-    public func createChineseCalendar() -> ICalendar {
-        createCalendar(context: .chinese)
-    }
-
-    /// Create Japanese calendar
-    public func createJapaneseCalendar() -> ICalendar {
-        createCalendar(context: .japanese)
-    }
-
-    /// Create Buddhist calendar
-    public func createBuddhistCalendar() -> ICalendar {
-        createCalendar(context: .buddhist)
-    }
-
-    /// Parse calendar and establish context
-    public func parseCalendar(from content: String) throws -> (calendar: ICalendar, context: ICalendarContext) {
-        let calendar = try parseCalendarContent(from: content)
-        let context = ICalendarContext(from: calendar)
-        return (calendar, context)
-    }
-
-    /// Private helper to avoid ambiguity with the overloaded parseCalendar method
-    private func parseCalendarContent(from content: String) throws -> ICalendar {
-        let parser = ICalendarParser()
-        return try parser.parse(content)
     }
 }
 

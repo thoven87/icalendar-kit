@@ -18,33 +18,29 @@ iCalendar Kit is a modern, Swift 6-compliant library that provides complete supp
 
 ### Basic Usage
 
-Create and work with calendar events using the high-level ``ICalendarClient`` interface:
+Create and work with calendar events using the new result builder syntax in version 2.0:
 
 ```swift
 import ICalendar
 
-let client = ICalendarClient()
-
-// Create a calendar
-var calendar = client.createCalendar(
-    name: "My Calendar",
-    description: "Personal calendar events"
-)
-
-// Create an event
-let event = client.createEvent(
-    summary: "Team Meeting",
-    startDate: Date(),
-    endDate: Date().addingTimeInterval(3600),
-    location: "Conference Room A",
-    description: "Weekly team sync meeting"
-)
-
-// Add the event to the calendar
-calendar.addEvent(event)
+// Create a calendar with events using CalendarBuilder result builder
+// Using the new CalendarBuilder result builder syntax
+let calendar = ICalendar.calendar(productId: "-//My App//EN") {
+    CalendarName("My Calendar")
+    CalendarDescription("Personal calendar events")
+    CalendarMethod("PUBLISH")
+    
+    ICalendarFactory.createEvent(
+        summary: "Team Meeting",
+        startDate: Date(),
+        endDate: Date().addingTimeInterval(3600),
+        location: "Conference Room A",
+        description: "Weekly team sync meeting"
+    )
+}
 
 // Export to iCalendar format
-let icsContent = try client.export(calendar)
+let icsContent = try ICalendarKit.serializeCalendar(calendar)
 ```
 
 ### Timezone-Aware Events
@@ -56,26 +52,111 @@ Handle events across multiple timezones with proper VTIMEZONE components:
 let nycTimezone = TimeZone(identifier: "America/New_York")!
 let londonTimezone = TimeZone(identifier: "Europe/London")!
 
-let globalMeeting = client.createEvent(
-    summary: "Global All-Hands",
-    startDate: Date(),
-    endDate: Date().addingTimeInterval(3600),
-    timeZone: nycTimezone
+let calendar = ICalendar.calendar(productId: "-//Global Corp//EN") {
+    CalendarName("Global Meetings")
+    DefaultTimeZone(nycTimezone)
+    
+    ICalendarFactory.createEvent(
+        summary: "Global All-Hands",
+        startDate: Date(),
+        endDate: Date().addingTimeInterval(3600),
+        timeZone: nycTimezone
+    )
+    
+    ICalendarFactory.createEvent(
+        summary: "London Team Sync",
+        startDate: Date().addingTimeInterval(86400), // tomorrow
+        endDate: Date().addingTimeInterval(90000),
+        timeZone: londonTimezone
+    )
+}
+```
+
+### Using EventBuilder for Complex Events
+
+Create multiple events with rich properties using the EventBuilder result builder:
+
+```swift
+// Create events using EventBuilder
+let events = EventBuilder {
+    EventBuilder(summary: "Daily Standup")
+        .startDate(Date())
+        .duration(ICalendarFactory.createDuration(minutes: 30))
+        .location("Virtual - Zoom")
+        .description("Daily team standup meeting")
+        .recurrence(ICalendarFactory.createDailyRecurrence(count: 30))
+        .addAlarm(ICalendarFactory.createDisplayAlarm(description: "Meeting in 15 minutes", triggerMinutesBefore: 15))
+    
+    EventBuilder(summary: "Project Planning")
+        .startDate(Calendar.current.date(byAdding: .day, value: 1, to: Date())!)
+        .duration(ICalendarFactory.createDuration(hours: 2))
+        .location("Conference Room B")
+        .attendees([
+            ICalendarFactory.createAttendee(email: "alice@company.com", name: "Alice", role: .requiredParticipant),
+            ICalendarFactory.createAttendee(email: "bob@company.com", name: "Bob", role: .optionalParticipant)
+        ])
+        .organizer(ICalendarFactory.createOrganizer(email: "manager@company.com", name: "Team Manager"))
+}
+
+// Create calendar with branded configuration
+let calendar = ICalendar.calendar(productId: "-//My Company//Project Calendar//EN") {
+    BrandedCalendar(
+        organizationName: "My Company",
+        organizationURL: "https://company.com",
+        brandColor: "#0066CC"
+    )
+    
+    for event in events {
+        event
+    }
+}
+```
+
+### Parsing and Working with External Calendars
+
+```swift
+// Parse an external calendar
+let icsContent = """
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//External//Calendar//EN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:external-event-123
+DTSTAMP:20240101T120000Z
+DTSTART:20240101T140000Z
+DTEND:20240101T150000Z
+SUMMARY:External Meeting
+LOCATION:Remote Office
+END:VEVENT
+END:VCALENDAR
+"""
+
+let externalCalendar = try ICalendarKit.parseCalendar(from: icsContent)
+print("Found \(externalCalendar.events.count) events")
+
+// Find specific events
+let todayEvents = ICalendarKit.findEvents(
+    in: externalCalendar,
+    from: Calendar.current.startOfDay(for: Date()),
+    to: Calendar.current.date(byAdding: .day, value: 1, to: Date())!
 )
 
-// The library automatically handles timezone conversions
-calendar.addEvent(globalMeeting)
+// Get calendar statistics
+let stats = ICalendarKit.getCalendarStatistics(externalCalendar)
+print("Calendar has \(stats.eventCount) events, \(stats.eventsWithAlarms) with alarms")
 ```
 
 ## Topics
 
 ### Core Components
 
-- ``ICalendarClient``
-- ``ICalendar``
-- ``ICalEvent``
-- ``ICalTodo``
-- ``ICalJournal``
+- ``ICalendar`` - Core calendar container
+- ``CalendarBuilder`` - Result builder for creating calendars
+- ``EventBuilder`` - Result builder for creating events
+- ``ICalEvent`` - Calendar events
+- ``ICalTodo`` - Task/todo items
+- ``ICalJournal`` - Journal entries
 
 ### Timezone Support
 

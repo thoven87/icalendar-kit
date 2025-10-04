@@ -1,13 +1,5 @@
 import Foundation
 
-extension String.Encoding {
-    static let utf8 = String.Encoding.utf8
-}
-
-extension CharacterSet {
-    static let newlines = CharacterSet.newlines
-}
-
 /// Serializer for iCalendar content following RFC 5545 specifications with Swift 6 structured concurrency
 public struct ICalendarSerializer: Sendable {
 
@@ -91,7 +83,7 @@ public struct ICalendarSerializer: Sendable {
         var lines: [String] = []
 
         // BEGIN line
-        lines.append("BEGIN:\(type(of: component).componentName)")
+        lines.append("BEGIN:\(component.instanceComponentName)")
 
         // Properties
         let properties =
@@ -112,7 +104,7 @@ public struct ICalendarSerializer: Sendable {
         }
 
         // END line
-        lines.append("END:\(type(of: component).componentName)")
+        lines.append("END:\(component.instanceComponentName)")
 
         return lines.joined(separator: "\r\n")
     }
@@ -137,9 +129,23 @@ public struct ICalendarSerializer: Sendable {
             }
         }
 
-        line += ":\(ICalendarFormatter.escapeText(property.value))"
+        line += ":\(formatPropertyValue(property))"
 
         return ICalendarFormatter.foldLine(line, maxLength: options.lineLength)
+    }
+
+    /// Format property value with appropriate escaping based on property type
+    private func formatPropertyValue(_ property: ICalendarProperty) -> String {
+        // Structured properties that should not be escaped
+        let structuredProperties = ["RRULE", "RDATE", "EXDATE", "TRIGGER"]
+
+        if structuredProperties.contains(property.name) {
+            // Return raw value without escaping for structured properties
+            return property.value
+        } else {
+            // Apply normal text escaping for other properties
+            return ICalendarFormatter.escapeText(property.value)
+        }
     }
 
     private func needsQuoting(_ value: String) -> Bool {

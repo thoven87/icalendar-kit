@@ -1,7 +1,7 @@
 import Foundation
 
 /// Comprehensive formatter for iCalendar values following RFC 5545, RFC 5546, RFC 6868, RFC 7529, and RFC 7986
-internal struct ICalendarFormatter {
+package struct ICalendarFormatter {
 
     // MARK: - Date and Time Formatting
 
@@ -27,7 +27,7 @@ internal struct ICalendarFormatter {
         return formatter
     }()
 
-    static func format(dateTime: ICalDateTime) -> String {
+    package static func format(dateTime: ICalDateTime) -> String {
         if dateTime.isDateOnly {
             return dateOnlyFormatter.string(from: dateTime.date)
         } else if dateTime.timeZone == nil || dateTime.timeZone?.identifier == "UTC" || dateTime.timeZone?.identifier == "GMT" {
@@ -38,7 +38,7 @@ internal struct ICalendarFormatter {
         }
     }
 
-    static func parseDateTime(_ value: String, timeZone: TimeZone = .gmt) -> ICalDateTime? {
+    package static func parseDateTime(_ value: String, timeZone: TimeZone = .gmt) -> ICalDateTime? {
         let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
 
         // Check for date-only format (YYYYMMDD) - timezone should be nil for date-only events
@@ -60,7 +60,7 @@ internal struct ICalendarFormatter {
 
     // MARK: - Duration Formatting
 
-    static func format(duration: ICalDuration) -> String {
+    package static func format(duration: ICalDuration) -> String {
         var result = duration.isNegative ? "-P" : "P"
 
         if duration.weeks > 0 {
@@ -95,7 +95,7 @@ internal struct ICalendarFormatter {
         return result
     }
 
-    static func parseDuration(_ value: String) -> ICalDuration? {
+    package static func parseDuration(_ value: String) -> ICalDuration? {
         let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedValue.isEmpty else { return nil }
 
@@ -165,14 +165,13 @@ internal struct ICalendarFormatter {
 
     // MARK: - Recurrence Rule Formatting
 
-    static func format(recurrenceRule: ICalRecurrenceRule) -> String {
+    package static func format(recurrenceRule: ICalRecurrenceRule) -> String {
         var parts: [String] = []
 
         parts.append("FREQ=\(recurrenceRule.frequency.rawValue)")
 
-        if let interval = recurrenceRule.interval, interval > 1 {
-            parts.append("INTERVAL=\(interval)")
-        }
+        // Always include INTERVAL for better compatibility, even when it's 1
+        parts.append("INTERVAL=\(recurrenceRule.interval)")
 
         if let count = recurrenceRule.count {
             parts.append("COUNT=\(count)")
@@ -182,55 +181,53 @@ internal struct ICalendarFormatter {
             parts.append("UNTIL=\(format(dateTime: until))")
         }
 
-        if let bySecond = recurrenceRule.bySecond, !bySecond.isEmpty {
-            parts.append("BYSECOND=\(bySecond.map(String.init).joined(separator: ","))")
+        if !recurrenceRule.bySecond.isEmpty {
+            parts.append("BYSECOND=\(recurrenceRule.bySecond.map(String.init).joined(separator: ","))")
         }
 
-        if let byMinute = recurrenceRule.byMinute, !byMinute.isEmpty {
-            parts.append("BYMINUTE=\(byMinute.map(String.init).joined(separator: ","))")
+        if !recurrenceRule.byMinute.isEmpty {
+            parts.append("BYMINUTE=\(recurrenceRule.byMinute.map(String.init).joined(separator: ","))")
         }
 
-        if let byHour = recurrenceRule.byHour, !byHour.isEmpty {
-            parts.append("BYHOUR=\(byHour.map(String.init).joined(separator: ","))")
+        if !recurrenceRule.byHour.isEmpty {
+            parts.append("BYHOUR=\(recurrenceRule.byHour.map(String.init).joined(separator: ","))")
         }
 
-        if let byDay = recurrenceRule.byDay, !byDay.isEmpty {
-            parts.append("BYDAY=\(byDay.joined(separator: ","))")
+        if !recurrenceRule.byWeekday.isEmpty {
+            parts.append("BYDAY=\(recurrenceRule.byWeekday.map(\.rawValue).joined(separator: ","))")
         }
 
-        if let byMonthDay = recurrenceRule.byMonthDay, !byMonthDay.isEmpty {
-            parts.append("BYMONTHDAY=\(byMonthDay.map(String.init).joined(separator: ","))")
+        if !recurrenceRule.byMonthday.isEmpty {
+            parts.append("BYMONTHDAY=\(recurrenceRule.byMonthday.map(String.init).joined(separator: ","))")
         }
 
-        if let byYearDay = recurrenceRule.byYearDay, !byYearDay.isEmpty {
-            parts.append("BYYEARDAY=\(byYearDay.map(String.init).joined(separator: ","))")
+        if !recurrenceRule.byYearday.isEmpty {
+            parts.append("BYYEARDAY=\(recurrenceRule.byYearday.map(String.init).joined(separator: ","))")
         }
 
-        if let byWeekNo = recurrenceRule.byWeekNo, !byWeekNo.isEmpty {
-            parts.append("BYWEEKNO=\(byWeekNo.map(String.init).joined(separator: ","))")
+        if !recurrenceRule.byWeekno.isEmpty {
+            parts.append("BYWEEKNO=\(recurrenceRule.byWeekno.map(String.init).joined(separator: ","))")
         }
 
-        if let byMonth = recurrenceRule.byMonth, !byMonth.isEmpty {
-            parts.append("BYMONTH=\(byMonth.map(String.init).joined(separator: ","))")
+        if !recurrenceRule.byMonth.isEmpty {
+            parts.append("BYMONTH=\(recurrenceRule.byMonth.map(String.init).joined(separator: ","))")
         }
 
-        if let bySetPos = recurrenceRule.bySetPos, !bySetPos.isEmpty {
-            parts.append("BYSETPOS=\(bySetPos.map(String.init).joined(separator: ","))")
+        if !recurrenceRule.bySetpos.isEmpty {
+            parts.append("BYSETPOS=\(recurrenceRule.bySetpos.map(String.init).joined(separator: ","))")
         }
 
-        if let weekStart = recurrenceRule.weekStart {
-            parts.append("WKST=\(weekStart.rawValue)")
-        }
+        parts.append("WKST=\(recurrenceRule.weekStart.rawValue)")
 
         // RFC 7529: RSCALE parameter for non-Gregorian calendars
-        if let rscale = recurrenceRule.rscale {
-            parts.append("RSCALE=\(rscale.rawValue)")
+        if recurrenceRule.recurrenceScale != .gregorian {
+            parts.append("RSCALE=\(recurrenceRule.recurrenceScale.rawValue)")
         }
 
         return parts.joined(separator: ";")
     }
 
-    static func parseRecurrenceRule(_ value: String) -> ICalRecurrenceRule? {
+    package static func parseRecurrenceRule(_ value: String) -> ICalRecurrenceRule? {
         let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
         let parts = trimmedValue.split(separator: ";")
 
@@ -297,26 +294,26 @@ internal struct ICalendarFormatter {
 
         return ICalRecurrenceRule(
             frequency: frequency,
-            interval: interval,
-            count: count,
             until: until,
-            bySecond: bySecond,
-            byMinute: byMinute,
-            byHour: byHour,
-            byDay: byDay,
-            byMonthDay: byMonthDay,
-            byYearDay: byYearDay,
-            byWeekNo: byWeekNo,
-            byMonth: byMonth,
-            bySetPos: bySetPos,
-            weekStart: weekStart,
-            rscale: rscale
+            count: count,
+            interval: interval ?? 1,
+            bySecond: bySecond ?? [],
+            byMinute: byMinute ?? [],
+            byHour: byHour ?? [],
+            byWeekday: byDay?.compactMap { ICalWeekday(rawValue: String($0.suffix(2))) } ?? [],
+            byMonthday: byMonthDay ?? [],
+            byYearday: byYearDay ?? [],
+            byWeekno: byWeekNo ?? [],
+            byMonth: byMonth ?? [],
+            bySetpos: bySetPos ?? [],
+            weekStart: weekStart ?? .monday,
+            recurrenceScale: rscale ?? .gregorian
         )
     }
 
     // MARK: - Attendee Formatting
 
-    static func parseAttendee(_ value: String, parameters: [String: String]) -> ICalAttendee? {
+    package static func parseAttendee(_ value: String, parameters: [String: String]) -> ICalAttendee? {
         // Extract email from value (usually in format "mailto:email@example.com")
         let email: String
         if value.hasPrefix("mailto:") {
@@ -353,7 +350,7 @@ internal struct ICalendarFormatter {
         )
     }
 
-    static func format(attendee: ICalAttendee) -> (String, [String: String]) {
+    package static func format(attendee: ICalAttendee) -> (String, [String: String]) {
         let value = "mailto:\(attendee.email)"
         var parameters: [String: String] = [:]
 
@@ -425,19 +422,31 @@ internal struct ICalendarFormatter {
     // MARK: - Parameter Value Escaping (RFC 6868)
 
     static func escapeParameterValue(_ value: String) -> String {
-        value
-            .replacingOccurrences(of: "^", with: "^^")
-            .replacingOccurrences(of: "\n", with: "^n")
-            .replacingOccurrences(of: "\r", with: "^r")
-            .replacingOccurrences(of: "\"", with: "^'")
+        // Use RFC 6868 compliant encoding
+        do {
+            return try ICalParameterCodec().encode(value)
+        } catch {
+            // Fallback to basic encoding if RFC 6868 fails
+            return
+                value
+                .replacingOccurrences(of: "^", with: "^^")
+                .replacingOccurrences(of: "\n", with: "^n")
+                .replacingOccurrences(of: "\"", with: "^'")
+        }
     }
 
     static func unescapeParameterValue(_ value: String) -> String {
-        value
-            .replacingOccurrences(of: "^n", with: "\n")
-            .replacingOccurrences(of: "^r", with: "\r")
-            .replacingOccurrences(of: "^'", with: "\"")
-            .replacingOccurrences(of: "^^", with: "^")
+        // Use RFC 6868 compliant decoding
+        do {
+            return try ICalParameterCodec().decode(value)
+        } catch {
+            // Fallback to basic decoding if RFC 6868 fails
+            return
+                value
+                .replacingOccurrences(of: "^n", with: "\n")
+                .replacingOccurrences(of: "^'", with: "\"")
+                .replacingOccurrences(of: "^^", with: "^")
+        }
     }
 
     // MARK: - Line Folding (RFC 5545 Section 3.1)
@@ -467,7 +476,7 @@ internal struct ICalendarFormatter {
 
     // MARK: - Property Formatting
 
-    static func formatProperty(_ property: ICalendarProperty) -> String {
+    package static func formatProperty(_ property: ICalendarProperty) -> String {
         var line = property.name
 
         // Add parameters
@@ -485,7 +494,7 @@ internal struct ICalendarFormatter {
         return foldLine(line)
     }
 
-    static func parseProperty(_ line: String) -> ICalendarProperty? {
+    package static func parseProperty(_ line: String) -> ICalendarProperty? {
         let unfolded = unfoldLines(line).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !unfolded.isEmpty else { return nil }
 
@@ -541,7 +550,7 @@ internal struct ICalendarFormatter {
         }
     }
 
-    static func parseUTCOffset(_ value: String) -> Int? {
+    package static func parseUTCOffset(_ value: String) -> Int? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count >= 5 else { return nil }
 
@@ -578,6 +587,20 @@ internal struct ICalendarFormatter {
         }
 
         return sign * totalSeconds
+    }
+
+    // MARK: - Date List Parsing/Formatting (for EXDATE, RDATE properties)
+
+    /// Format a list of date-times for EXDATE/RDATE properties
+    package static func format(dateList: [ICalDateTime]) -> String {
+        dateList.map { format(dateTime: $0) }.joined(separator: ",")
+    }
+
+    /// Parse a comma-separated list of date-times for EXDATE/RDATE properties
+    package static func parseDateList(_ value: String, timeZone: TimeZone = .gmt) -> [ICalDateTime] {
+        value.split(separator: ",")
+            .compactMap { String($0).trimmingCharacters(in: .whitespaces) }
+            .compactMap { parseDateTime($0, timeZone: timeZone) }
     }
 
     // MARK: - Base64 Encoding/Decoding (RFC 7986 IMAGE property support)
