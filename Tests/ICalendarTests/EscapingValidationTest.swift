@@ -131,7 +131,7 @@ struct EscapingValidationTest {
         event.dateTimeStamp = ICalDateTime(date: Date())
 
         // Add organizer with special characters in CN parameter
-        var organizer = ICalAttendee(
+        let organizer = ICalAttendee(
             email: "test@example.com",
             commonName: "John; Doe, Jr.",
             role: .chair
