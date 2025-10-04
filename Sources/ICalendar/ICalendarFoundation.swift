@@ -7,6 +7,9 @@ public protocol ICalendarComponent: Sendable {
     /// The component name (e.g., "VEVENT", "VTODO", "VJOURNAL")
     static var componentName: String { get }
 
+    /// Instance component name (allows dynamic component names)
+    var instanceComponentName: String { get }
+
     /// Properties associated with this component
     var properties: [ICalendarProperty] { get set }
 
@@ -15,6 +18,29 @@ public protocol ICalendarComponent: Sendable {
 
     /// Initialize from properties and components
     init(properties: [ICalendarProperty], components: [any ICalendarComponent])
+
+    /// Validates this component against RFC 5545 rules
+    func validate() -> ICalValidationResult
+
+    /// Applies RFC 5545 compliance rules to this component
+    mutating func applyCompliance()
+}
+
+extension ICalendarComponent {
+    /// Default implementation uses static componentName
+    public var instanceComponentName: String {
+        Self.componentName
+    }
+
+    /// Default implementation returns success
+    public func validate() -> ICalValidationResult {
+        .success
+    }
+
+    /// Default implementation does nothing
+    public mutating func applyCompliance() {
+        // Default implementation - subclasses can override
+    }
 }
 
 /// Protocol for properties that can appear in iCalendar components
@@ -85,203 +111,6 @@ public enum ICalendarValueType: String, Sendable, CaseIterable, Codable {
     case time = "TIME"
     case uri = "URI"
     case utcOffset = "UTC-OFFSET"
-}
-
-/// Represents an iCalendar date-time value
-public struct ICalDateTime: Sendable, Codable, Hashable {
-    public let date: Date
-    public let timeZone: TimeZone?
-    public let isDateOnly: Bool
-
-    public init(date: Date, timeZone: TimeZone? = nil, isDateOnly: Bool = false) {
-        self.date = date
-        self.timeZone = timeZone
-        self.isDateOnly = isDateOnly
-    }
-}
-
-/// Represents an iCalendar duration
-public struct ICalDuration: Sendable, Codable, Hashable {
-    public let weeks: Int
-    public let days: Int
-    public let hours: Int
-    public let minutes: Int
-    public let seconds: Int
-    public let isNegative: Bool
-
-    public init(weeks: Int = 0, days: Int = 0, hours: Int = 0, minutes: Int = 0, seconds: Int = 0, isNegative: Bool = false) {
-        self.weeks = weeks
-        self.days = days
-        self.hours = hours
-        self.minutes = minutes
-        self.seconds = seconds
-        self.isNegative = isNegative
-    }
-
-    /// Total duration in seconds
-    public var totalSeconds: TimeInterval {
-        let total = Double(weeks * 7 * 24 * 3600 + days * 24 * 3600 + hours * 3600 + minutes * 60 + seconds)
-        return isNegative ? -total : total
-    }
-}
-
-/// Represents an iCalendar period
-public struct ICalPeriod: Sendable, Codable, Hashable {
-    public let start: ICalDateTime
-    public let end: ICalDateTime?
-    public let duration: ICalDuration?
-
-    public init(start: ICalDateTime, end: ICalDateTime) {
-        self.start = start
-        self.end = end
-        self.duration = nil
-    }
-
-    public init(start: ICalDateTime, duration: ICalDuration) {
-        self.start = start
-        self.end = nil
-        self.duration = duration
-    }
-}
-
-/// Represents recurrence rule frequency
-public enum ICalRecurrenceFrequency: String, Sendable, CaseIterable, Codable {
-    case secondly = "SECONDLY"
-    case minutely = "MINUTELY"
-    case hourly = "HOURLY"
-    case daily = "DAILY"
-    case weekly = "WEEKLY"
-    case monthly = "MONTHLY"
-    case yearly = "YEARLY"
-}
-
-/// Represents weekday values for recurrence rules
-public enum ICalWeekday: String, Sendable, CaseIterable, Codable {
-    case sunday = "SU"
-    case monday = "MO"
-    case tuesday = "TU"
-    case wednesday = "WE"
-    case thursday = "TH"
-    case friday = "FR"
-    case saturday = "SA"
-}
-
-/// Calendar scale for recurrence rules (RFC 7529)
-///
-/// Represents different calendar systems that can be used in recurrence calculations.
-/// Uses Foundation's Calendar.Identifier for compatibility
-public enum ICalRecurrenceScale: String, Sendable, CaseIterable, Codable {
-    case gregorian = "GREGORIAN"
-    case hebrew = "HEBREW"
-    case islamic = "ISLAMIC"
-    case chinese = "CHINESE"
-    case buddhist = "BUDDHIST"
-    case japanese = "JAPANESE"
-    case persian = "PERSIAN"
-    case indian = "INDIAN"
-    case coptic = "COPTIC"
-    case ethiopic = "ETHIOPIC"
-
-    /// Convert to Foundation Calendar.Identifier
-    public var foundationIdentifier: Calendar.Identifier {
-        switch self {
-        case .gregorian: return .gregorian
-        case .hebrew: return .hebrew
-        case .islamic: return .islamic
-        case .chinese: return .chinese
-        case .buddhist: return .buddhist
-        case .japanese: return .japanese
-        case .persian: return .persian
-        case .indian: return .indian
-        case .coptic: return .coptic
-        case .ethiopic: return .ethiopicAmeteMihret
-        }
-    }
-
-    /// Create from Foundation Calendar.Identifier
-    public init?(foundationIdentifier: Calendar.Identifier) {
-        switch foundationIdentifier {
-        case .gregorian: self = .gregorian
-        case .hebrew: self = .hebrew
-        case .islamic: self = .islamic
-        case .chinese: self = .chinese
-        case .buddhist: self = .buddhist
-        case .japanese: self = .japanese
-        case .persian: self = .persian
-        case .indian: self = .indian
-        case .coptic: self = .coptic
-        case .ethiopicAmeteMihret: self = .ethiopic
-        default: return nil
-        }
-    }
-
-    /// Get Foundation Calendar for this scale
-    public var foundationCalendar: Calendar {
-        Calendar(identifier: foundationIdentifier)
-    }
-}
-
-/// Represents a recurrence rule with RFC 7529 RSCALE support
-///
-/// Enhanced recurrence rule that supports non-Gregorian calendar systems
-/// for international and religious applications.
-public struct ICalRecurrenceRule: Sendable, Codable, Hashable {
-    public let frequency: ICalRecurrenceFrequency
-    public let interval: Int?
-    public let count: Int?
-    public let until: ICalDateTime?
-    public let bySecond: [Int]?
-    public let byMinute: [Int]?
-    public let byHour: [Int]?
-    public let byDay: [String]?  // Can include ordinals like "2MO"
-    public let byMonthDay: [Int]?
-    public let byYearDay: [Int]?
-    public let byWeekNo: [Int]?
-    public let byMonth: [Int]?
-    public let bySetPos: [Int]?
-    public let weekStart: ICalWeekday?
-
-    /// RFC 7529: Calendar scale for non-Gregorian recurrence
-    public let rscale: ICalRecurrenceScale?
-
-    public init(
-        frequency: ICalRecurrenceFrequency,
-        interval: Int? = nil,
-        count: Int? = nil,
-        until: ICalDateTime? = nil,
-        bySecond: [Int]? = nil,
-        byMinute: [Int]? = nil,
-        byHour: [Int]? = nil,
-        byDay: [String]? = nil,
-        byMonthDay: [Int]? = nil,
-        byYearDay: [Int]? = nil,
-        byWeekNo: [Int]? = nil,
-        byMonth: [Int]? = nil,
-        bySetPos: [Int]? = nil,
-        weekStart: ICalWeekday? = nil,
-        rscale: ICalRecurrenceScale? = nil
-    ) {
-        self.frequency = frequency
-        self.interval = interval
-        self.count = count
-        self.until = until
-        self.bySecond = bySecond
-        self.byMinute = byMinute
-        self.byHour = byHour
-        self.byDay = byDay
-        self.byMonthDay = byMonthDay
-        self.byYearDay = byYearDay
-        self.byWeekNo = byWeekNo
-        self.byMonth = byMonth
-        self.bySetPos = bySetPos
-        self.weekStart = weekStart
-        self.rscale = rscale
-    }
-
-    /// Get the Foundation Calendar for recurrence calculations
-    public var calendar: Calendar {
-        rscale?.foundationCalendar ?? Calendar(identifier: .gregorian)
-    }
 }
 
 // MARK: - Status and Classification Types

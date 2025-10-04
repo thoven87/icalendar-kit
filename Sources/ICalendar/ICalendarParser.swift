@@ -7,8 +7,7 @@ public struct ICalendarParser: Sendable {
 
     private enum ParsingState {
         case idle
-        case inComponent(String)
-        case inSubComponent(String, parent: String)
+        case inComponent(String, depth: Int)
     }
 
     // MARK: - Public Interface
@@ -39,8 +38,16 @@ public struct ICalendarParser: Sendable {
         // Unfold lines according to RFC 5545 Section 3.1
         let unfolded = ICalendarFormatter.unfoldLines(content)
 
-        // Split into lines and filter empty ones
-        return unfolded.components(separatedBy: .newlines)
+        // Split into lines using CRLF first, then LF as fallback
+        let lines: [String]
+        if unfolded.contains("\r\n") {
+            lines = unfolded.components(separatedBy: "\r\n")
+        } else {
+            lines = unfolded.components(separatedBy: "\n")
+        }
+
+        return
+            lines
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
     }
@@ -49,7 +56,7 @@ public struct ICalendarParser: Sendable {
 
     private func parseLines(_ lines: [String]) throws -> ICalendar {
         var calendar: ICalendar?
-        var componentStack: [(any ICalendarComponent, String)] = []
+        var componentStack: [(properties: [ICalendarProperty], components: [any ICalendarComponent], name: String)] = []
         var currentProperties: [ICalendarProperty] = []
         var currentComponents: [any ICalendarComponent] = []
         var state: ParsingState = .idle
@@ -59,65 +66,51 @@ public struct ICalendarParser: Sendable {
                 let componentName = String(line.dropFirst(6))
 
                 // Save current component state
-                if case .inComponent(let parentName) = state {
-                    // We're entering a sub-component
-                    let component = try createComponent(
-                        name: parentName,
-                        properties: currentProperties,
-                        components: currentComponents
-                    )
-                    componentStack.append((component, parentName))
+                if case .inComponent(let parentName, let depth) = state {
+                    // We're entering a sub-component - save current state without creating component
+                    componentStack.append((properties: currentProperties, components: currentComponents, name: parentName))
                     currentProperties = []
                     currentComponents = []
-                    state = .inSubComponent(componentName, parent: parentName)
+                    state = .inComponent(componentName, depth: depth + 1)
                 } else {
                     // Starting a new top-level component
-                    state = .inComponent(componentName)
+                    state = .inComponent(componentName, depth: 0)
                 }
 
             } else if line.hasPrefix("END:") {
                 let componentName = String(line.dropFirst(4))
 
                 switch state {
-                case .inComponent(let name):
+                case .inComponent(let name, let depth):
                     guard name == componentName else {
                         throw ICalendarError.invalidFormat("Mismatched component end: expected \(name), got \(componentName)")
                     }
 
-                    if componentName == "VCALENDAR" {
+                    if componentName == "VCALENDAR" && depth == 0 {
                         calendar = ICalendar(properties: currentProperties, components: currentComponents)
+                        currentProperties = []
+                        currentComponents = []
+                        state = .idle
                     } else {
                         let component = try createComponent(
                             name: componentName,
                             properties: currentProperties,
                             components: currentComponents
                         )
-                        currentComponents.append(component)
-                    }
 
-                    currentProperties = []
-                    currentComponents = []
-                    state = .idle
-
-                case .inSubComponent(let name, _):
-                    guard name == componentName else {
-                        throw ICalendarError.invalidFormat("Mismatched sub-component end: expected \(name), got \(componentName)")
-                    }
-
-                    let subComponent = try createComponent(
-                        name: componentName,
-                        properties: currentProperties,
-                        components: currentComponents
-                    )
-
-                    // Restore parent component state
-                    if let (parentComponent, parentName) = componentStack.popLast() {
-                        currentProperties = parentComponent.properties
-                        currentComponents = parentComponent.components
-                        currentComponents.append(subComponent)
-                        state = .inComponent(parentName)
-                    } else {
-                        throw ICalendarError.invalidFormat("Sub-component stack underflow")
+                        // Restore parent component state if we have a parent
+                        if let parentState = componentStack.popLast() {
+                            currentProperties = parentState.properties
+                            currentComponents = parentState.components
+                            currentComponents.append(component)
+                            state = .inComponent(parentState.name, depth: depth - 1)
+                        } else {
+                            // This is a top-level component (not VCALENDAR)
+                            currentComponents.append(component)
+                            currentProperties = []
+                            currentComponents = []
+                            state = .idle
+                        }
                     }
 
                 case .idle:
@@ -167,7 +160,7 @@ public struct ICalendarParser: Sendable {
         case "VVENUE":
             return ICalVenue(properties: properties, components: components)
         case "VLOCATION":
-            return ICalLocation(properties: properties, components: components)
+            return ICalLocationComponent(properties: properties, components: components)
         case "VRESOURCE":
             return ICalResourceComponent(properties: properties, components: components)
         case "VAVAILABILITY":

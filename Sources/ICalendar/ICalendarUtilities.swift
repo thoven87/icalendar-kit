@@ -162,53 +162,7 @@ extension Array where Element == ICalTodo {
 // MARK: - Calendar Builder
 
 /// Fluent interface for building calendars
-public struct ICalendarBuilder: Sendable {
-    private var calendar: ICalendar
-
-    public init(productId: String = "-//ICalendar Kit//EN") {
-        self.calendar = ICalendar(productId: productId)
-    }
-
-    public func method(_ method: String) -> ICalendarBuilder {
-        var builder = self
-        builder.calendar.method = method
-        return builder
-    }
-
-    public func calendarScale(_ scale: String) -> ICalendarBuilder {
-        var builder = self
-        builder.calendar.calendarScale = scale
-        return builder
-    }
-
-    public func addEvent(_ event: ICalEvent) -> ICalendarBuilder {
-        var builder = self
-        builder.calendar.addEvent(event)
-        return builder
-    }
-
-    public func addTodo(_ todo: ICalTodo) -> ICalendarBuilder {
-        var builder = self
-        builder.calendar.addTodo(todo)
-        return builder
-    }
-
-    public func addJournal(_ journal: ICalJournal) -> ICalendarBuilder {
-        var builder = self
-        builder.calendar.addJournal(journal)
-        return builder
-    }
-
-    public func addTimeZone(_ timeZone: ICalTimeZone) -> ICalendarBuilder {
-        var builder = self
-        builder.calendar.addTimeZone(timeZone)
-        return builder
-    }
-
-    public func build() -> ICalendar {
-        calendar
-    }
-}
+// Old-style ICalendarBuilder removed in favor of result builder pattern in Foundation/ICalendarBuilder.swift
 
 // MARK: - Event Builder
 
@@ -490,8 +444,8 @@ public struct RecurrencePatterns {
     public static func daily(count: Int? = nil, until: Date? = nil) -> ICalRecurrenceRule {
         ICalRecurrenceRule(
             frequency: .daily,
-            count: count,
-            until: until?.asICalDateTime()
+            until: until?.asICalDateTime(),
+            count: count
         )
     }
 
@@ -499,9 +453,9 @@ public struct RecurrencePatterns {
     public static func weekly(on days: [ICalWeekday], count: Int? = nil, until: Date? = nil) -> ICalRecurrenceRule {
         ICalRecurrenceRule(
             frequency: .weekly,
-            count: count,
             until: until?.asICalDateTime(),
-            byDay: days.map { $0.rawValue }
+            count: count,
+            byWeekday: days
         )
     }
 
@@ -511,22 +465,22 @@ public struct RecurrencePatterns {
     }
 
     /// Monthly recurrence on specific day of month
-    public static func monthly(dayOfMonth: Int, count: Int? = nil, until: Date? = nil) -> ICalRecurrenceRule {
+    public static func monthlyByDay(_ day: Int, count: Int? = nil, until: Date? = nil) -> ICalRecurrenceRule {
         ICalRecurrenceRule(
             frequency: .monthly,
-            count: count,
             until: until?.asICalDateTime(),
-            byMonthDay: [dayOfMonth]
+            count: count,
+            byMonthday: [day]
         )
     }
 
-    /// Monthly recurrence on specific weekday (e.g., first Monday)
-    public static func monthly(ordinal: Int, weekday: ICalWeekday, count: Int? = nil, until: Date? = nil) -> ICalRecurrenceRule {
+    /// Monthly recurrence on specific weekday occurrence (e.g., first Monday)
+    public static func monthlyByWeekday(_ weekday: ICalWeekday, occurrence: Int, count: Int? = nil, until: Date? = nil) -> ICalRecurrenceRule {
         ICalRecurrenceRule(
             frequency: .monthly,
-            count: count,
             until: until?.asICalDateTime(),
-            byDay: ["\(ordinal)\(weekday.rawValue)"]
+            count: count,
+            byWeekday: [weekday]
         )
     }
 
@@ -534,8 +488,8 @@ public struct RecurrencePatterns {
     public static func yearly(count: Int? = nil, until: Date? = nil) -> ICalRecurrenceRule {
         ICalRecurrenceRule(
             frequency: .yearly,
-            count: count,
-            until: until?.asICalDateTime()
+            until: until?.asICalDateTime(),
+            count: count
         )
     }
 }

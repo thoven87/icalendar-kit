@@ -2,6 +2,13 @@
 
 A comprehensive Swift 6 library for parsing and creating iCalendar (RFC 5545) events with full support for structured concurrency, Sendable conformance, and modern Swift features.
 
+```swift
+let calendar = ICalendar.calendar {
+    CalendarName("My Calendar")
+    createEvent(summary: "Meeting", startDate: Date(), endDate: Date().addingTimeInterval(3600))
+}
+```
+
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fthoven87%2Ficalendar-kit%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/thoven87/icalendar-kit)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fthoven87%2Ficalendar-kit%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/thoven87/icalendar-kit)
 [![CI](https://github.com/thoven87/icalendar-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/thoven87/icalendar-kit/actions/workflows/ci.yml)
@@ -23,6 +30,7 @@ A comprehensive Swift 6 library for parsing and creating iCalendar (RFC 5545) ev
 - iOS 13.0+ / macOS 10.15+ / tvOS 13.0+ / watchOS 6.0+
 - Swift 6.0+
 - Xcode 16.0+
+- Linux
 
 ## Installation
 
@@ -48,24 +56,29 @@ Or add it through Xcode:
 ```swift
 import ICalendar
 
-let client = ICalendar()
+// Create a simple event using EventBuilder
+let startTime = Date()
+let timeZone = TimeZone.current
 
-// Create a simple event
-let event = client.createEvent(
-    summary: "Team Meeting",
-    startDate: Date(),
-    endDate: Date().addingTimeInterval(3600), // 1 hour later
-    location: "Conference Room A",
-    description: "Weekly team sync meeting"
-)
+let teamMeeting = EventBuilder(summary: "Team Meeting")
+    .starts(at: startTime, timeZone: timeZone)
+    .duration(3600) // 1 hour in seconds
+    .location("Conference Room A")
+    .description("Weekly team sync meeting")
+    .categories("Work", "Meeting")
+    .confirmed()
+    .addAlarm(action: .display, minutesBefore: 15, description: "Meeting starts in 15 minutes")
+    .buildEvent()
 
-// Create a calendar and add the event
-var calendar = client.createCalendar(productId: "-//My App//EN")
-calendar.addEvent(event)
+// Create calendar and add the event
+var calendar = ICalendar(productId: "-//My App//Team Calendar//EN")
+calendar.name = "My Team Calendar"
+calendar.calendarDescription = "Team events and meetings"
+calendar.addEvent(teamMeeting)
 
 // Serialize to iCalendar format
-let icalString = try client.serializeCalendar(calendar)
-print(icalString)
+let icsString = try ICalendarSerializer().serialize(calendar)
+print(icsString)
 ```
 
 ### Parsing iCalendar Content
@@ -86,8 +99,47 @@ END:VEVENT
 END:VCALENDAR
 """
 
-let calendar = try client.parseCalendar(from: icalContent)
+// Direct parsing functions (no client needed in v2.0)
+let calendar = try ICalendarKit.parseCalendar(from: icalContent)
 print("Found \(calendar.events.count) events")
+```
+
+### Using EventBuilder for Complex Events
+
+```swift
+// Create events using EventBuilder
+let startTime = Date()
+let timeZone = TimeZone(identifier: "America/New_York")!
+
+// Simple meeting
+let meeting = EventBuilder(summary: "Daily Standup")
+    .starts(at: startTime, timeZone: timeZone)
+    .duration(1800) // 30 minutes in seconds
+    .location("Virtual - Zoom")
+    .description("Daily team standup meeting")
+    .categories("Work", "Meeting")
+    .confirmed()
+    .addAlarm(action: .display, minutesBefore: 15, description: "Meeting in 15 minutes")
+    .buildEvent()
+
+// Project planning session
+let projectPlanning = EventBuilder(summary: "Project Planning")
+    .starts(at: Calendar.current.date(byAdding: .day, value: 1, to: Date())!, timeZone: timeZone)
+    .duration(7200) // 2 hours in seconds
+    .location("Conference Room B")
+    .description("Weekly project planning session")
+    .organizer(email: "manager@company.com", name: "Project Manager")
+    .attendee(email: "alice@company.com", name: "Alice", required: true)
+    .attendee(email: "bob@company.com", name: "Bob", required: false)
+    .highPriority()
+    .confirmed()
+    .buildEvent()
+
+// Create calendar with the events
+var calendar = ICalendar(productId: "-//My Company//Project Calendar//EN")
+calendar.name = "Project Calendar"
+calendar.addEvent(meeting)
+calendar.addEvent(projectPlanning)
 ```
 
 ## Advanced Usage
@@ -95,199 +147,367 @@ print("Found \(calendar.events.count) events")
 ### Creating Recurring Events
 
 ```swift
-// Daily recurrence for 10 days
-let dailyRule = client.createDailyRecurrence(interval: 1, count: 10)
+let startTime = Date()
+let timeZone = TimeZone(identifier: "America/New_York")!
 
-// Weekly on Monday, Wednesday, Friday
-let weeklyRule = client.createWeeklyRecurrence(
-    daysOfWeek: [.monday, .wednesday, .friday],
-    count: 8
-)
+// Daily standup for 10 occurrences
+let dailyStandup = EventBuilder(summary: "Daily Standup")
+    .starts(at: startTime, timeZone: timeZone)
+    .duration(1800) // 30 minutes
+    .location("Team Room")
+    .description("Daily team standup meeting")
+    .repeats(every: 1, count: 10) // Daily for 10 days
+    .categories("Work", "Standup")
+    .confirmed()
+    .addAlarm(action: .display, minutesBefore: 5, description: "Standup starting soon")
+    .buildEvent()
 
-// Monthly on the 15th
-let monthlyRule = client.createMonthlyRecurrence(
-    dayOfMonth: 15,
-    count: 12
-)
+// Weekly team meeting on weekdays (Monday, Wednesday, Friday)
+let weeklyMeeting = EventBuilder(summary: "Team Meeting")
+    .starts(at: startTime, timeZone: timeZone)
+    .duration(3600) // 1 hour
+    .location("Conference Room A")
+    .description("Weekly team sync meeting")
+    .repeatsWeekly(every: 1, on: [.monday, .wednesday, .friday], count: 8)
+    .organizer(email: "lead@company.com", name: "Team Lead")
+    .categories("Work", "Team Meeting")
+    .confirmed()
+    .addAlarm(action: .display, minutesBefore: 15, description: "Team meeting reminder")
+    .buildEvent()
 
-let recurringEvent = client.createRecurringEvent(
-    summary: "Recurring Meeting",
-    startDate: Date(),
-    endDate: Date().addingTimeInterval(3600),
-    recurrenceRule: weeklyRule
-)
+// Monthly all-hands meeting
+let monthlyAllHands = EventBuilder(summary: "All Hands Meeting")
+    .starts(at: startTime, timeZone: timeZone)
+    .duration(7200) // 2 hours
+    .location("Main Auditorium")
+    .description("Monthly company-wide meeting")
+    .repeatsMonthly(every: 1, count: 12) // Monthly for 12 months
+    .organizer(email: "ceo@company.com", name: "CEO")
+    .categories("Company", "All Hands")
+    .highPriority()
+    .confirmed()
+    .addAlarm(action: .display, minutesBefore: 30, description: "All hands meeting starting soon")
+    .buildEvent()
+
+// Create calendar and add events
+var calendar = ICalendar(productId: "-//My Company//Recurring Events//EN")
+calendar.name = "Recurring Events Calendar"
+calendar.addEvent(dailyStandup)
+calendar.addEvent(weeklyMeeting)
+calendar.addEvent(monthlyAllHands)
 ```
 
 ### Adding Attendees and Organizer
 
 ```swift
-let organizer = client.createOrganizer(
-    email: "organizer@company.com",
-    name: "Meeting Organizer"
-)
+// Create meeting with attendees and organizer
+let startTime = Date()
+let timeZone = TimeZone(identifier: "America/New_York")!
 
-let attendees = [
-    client.createAttendee(
-        email: "john@company.com",
-        name: "John Doe",
-        role: .requiredParticipant,
-        status: .needsAction,
-        rsvp: true
-    ),
-    client.createAttendee(
-        email: "jane@company.com",
-        name: "Jane Smith",
-        role: .optionalParticipant
-    )
-]
+let projectKickoff = EventBuilder(summary: "Project Kickoff")
+    .starts(at: startTime, timeZone: timeZone)
+    .duration(7200) // 2 hours
+    .location("Conference Room A")
+    .description("Project kickoff meeting to discuss goals and timeline")
+    .organizer(email: "organizer@company.com", name: "Meeting Organizer")
+    .attendee(email: "john@company.com", name: "John Doe", required: true)
+    .attendee(email: "jane@company.com", name: "Jane Smith", required: false)
+    .attendee(email: "mike@company.com", name: "Mike Johnson", required: true)
+    .categories("Project", "Kickoff")
+    .highPriority()
+    .confirmed()
+    .addAlarm(action: .display, minutesBefore: 15, description: "Meeting starts in 15 minutes")
+    .addAlarm(action: .display, minutesBefore: 60, description: "Project kickoff in 1 hour")
+    .buildEvent()
 
-let meetingCalendar = client.createMeetingInvitation(
-    summary: "Project Kickoff",
-    startDate: Date(),
-    endDate: Date().addingTimeInterval(7200),
-    location: "Main Conference Room",
-    description: "Kickoff meeting for the new project",
-    organizer: organizer,
-    attendees: attendees,
-    reminderMinutes: 15
-)
+// Create calendar and add the event
+var calendar = ICalendar(productId: "-//My Company//Meeting Planner//EN")
+calendar.name = "Team Meetings"
+calendar.addEvent(projectKickoff)
+
+// All-day event example
+let teamOuting = EventBuilder(summary: "Team Building Outing")
+    .allDay(on: Calendar.current.date(byAdding: .day, value: 7, to: Date())!, timeZone: timeZone)
+    .location("Adventure Park")
+    .description("Annual team building activity")
+    .organizer(email: "hr@company.com", name: "HR Department")
+    .attendee(email: "team1@company.com", name: "Team Member 1")
+    .attendee(email: "team2@company.com", name: "Team Member 2")
+    .categories("Team Building", "Fun")
+    .confirmed()
+    .buildEvent()
+
+calendar.addEvent(teamOuting)
 ```
 
-### Using the Builder Pattern
+### Using the Builder Pattern with Pre-configured Templates
 
 ```swift
-// Event builder
-let event = ICalEventBuilder(summary: "Design Review")
-    .description("Review of the new user interface designs")
-    .location("Design Studio")
-    .startDate(Date())
-    .endDate(Date().addingTimeInterval(5400)) // 1.5 hours
-    .status(.confirmed)
-    .priority(5)
-    .organizer(organizer)
-    .attendees(attendees)
-    .alarm(client.createDisplayAlarm(
-        description: "Design review starting soon",
-        triggerMinutesBefore: 10
-    ))
-    .build()
+// Create healthcare calendar with EventBuilder
+let startTime = Date()
+let timeZone = TimeZone(identifier: "America/New_York")!
 
-// Calendar builder
-let calendar = ICalendarBuilder(productId: "-//Design App//EN")
-    .method("REQUEST")
-    .addEvent(event)
-    .build()
+// Healthcare event
+let consultation = EventBuilder(summary: "Patient Consultation - John Doe")
+    .starts(at: startTime, timeZone: timeZone)
+    .duration(3600) // 1 hour
+    .location("Room 205 - Cardiology")
+    .description("Routine cardiology consultation")
+    .categories("Healthcare", "Consultation")
+    .confirmed()
+    .privateEvent() // HIPAA compliant
+    .addAlarm(action: .display, minutesBefore: 15, description: "Patient consultation starting")
+    .buildEvent()
+
+var healthcareCalendar = ICalendar(productId: "-//City Hospital//Healthcare App//EN")
+healthcareCalendar.name = "Cardiology Schedule"
+healthcareCalendar.calendarDescription = "City Hospital - Cardiology Department"
+healthcareCalendar.addEvent(consultation)
+
+// Corporate team calendar
+let sprintPlanning = EventBuilder(summary: "Sprint Planning")
+    .starts(at: Calendar.current.date(byAdding: .day, value: 1, to: Date())!, timeZone: timeZone)
+    .duration(7200) // 2 hours
+    .location("Engineering Conference Room")
+    .description("Planning for next development sprint")
+    .organizer(email: "scrum-master@acme.com", name: "Scrum Master")
+    .attendee(email: "dev1@acme.com", name: "Developer 1", required: true)
+    .attendee(email: "dev2@acme.com", name: "Developer 2", required: true)
+    .attendee(email: "designer@acme.com", name: "UX Designer", required: false)
+    .categories("Engineering", "Planning")
+    .highPriority()
+    .confirmed()
+    .addAlarm(action: .display, minutesBefore: 30, description: "Sprint planning starting soon")
+    .buildEvent()
+
+var corporateCalendar = ICalendar(productId: "-//Acme Corp//Corporate//EN")
+corporateCalendar.name = "Engineering Team"
+corporateCalendar.calendarDescription = "Acme Corp - Engineering Team Events"
+corporateCalendar.addEvent(sprintPlanning)
 ```
 
 ### Working with Time Zones
 
 ```swift
-// Create events with specific time zones
+// Multi-timezone calendar with EventBuilder
 let pstTimeZone = TimeZone(identifier: "America/Los_Angeles")!
-let event = client.createEvent(
-    summary: "West Coast Meeting",
-    startDate: Date(),
-    endDate: Date().addingTimeInterval(3600)
-)
+let estTimeZone = TimeZone(identifier: "America/New_York")!
 
-// The datetime will include timezone information
-event.dateTimeStart = ICalDateTime(
-    date: Date(),
-    timeZone: pstTimeZone
-)
+// West Coast event (9 AM PST)
+let westCoastStandup = EventBuilder(summary: "West Coast Team Standup")
+    .starts(at: Date(), timeZone: pstTimeZone)
+    .duration(3600) // 1 hour
+    .location("San Francisco Office")
+    .description("Daily standup for west coast team")
+    .categories("Work", "Standup")
+    .repeats(every: 1, count: 30) // Daily for 30 days
+    .confirmed()
+    .addAlarm(action: .display, minutesBefore: 5, description: "Standup starting")
+    .buildEvent()
+
+// East Coast event (2 PM EST - same time as west coast standup)
+let eastCoastCall = EventBuilder(summary: "East Coast Client Call")
+    .starts(at: Calendar.current.date(byAdding: .day, value: 1, to: Date())!, timeZone: estTimeZone)
+    .duration(3600) // 1 hour
+    .location("New York Office")
+    .description("Important client call")
+    .organizer(email: "sales@company.com", name: "Sales Team")
+    .categories("Sales", "Client")
+    .highPriority()
+    .confirmed()
+    .addAlarm(action: .display, minutesBefore: 15, description: "Client call starting")
+    .buildEvent()
+
+var multiTimeZoneCalendar = ICalendar(productId: "-//Multi-TZ Company//EN")
+multiTimeZoneCalendar.name = "Multi-Timezone Events"
+multiTimeZoneCalendar.addEvent(westCoastStandup)
+multiTimeZoneCalendar.addEvent(eastCoastCall)
+```
+
+### Advanced Recurring Events
+
+```swift
+// Daily stand up meetings
+let startTime = Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 1, hour: 9))!
+let timeZone = TimeZone(identifier: "America/New_York")!
+
+// Weekly stand up on weekdays
+let weeklyStandUp = EventBuilder(summary: "Team Stand Up")
+    .starts(at: startTime, timeZone: timeZone)
+    .duration(1800) // 30 minutes
+    .location("Conference Room A")
+    .description("Daily team stand up meeting")
+    .repeatsWeekly(every: 1, on: [.monday, .tuesday, .wednesday, .thursday, .friday])
+    .categories("Work", "Stand Up")
+    .confirmed()
+    .addAlarm(action: .display, minutesBefore: 15, description: "Stand up starting soon")
+    .buildEvent()
+
+// Daily recurring pattern
+let dailyStandUp = EventBuilder(summary: "Daily Stand Up")
+    .starts(at: startTime, timeZone: timeZone)
+    .duration(900) // 15 minutes
+    .description("Quick daily sync")
+    .repeats(every: 1, count: 30) // Daily for 30 days
+    .categories("Daily", "Stand Up")
+    .confirmed()
+    .buildEvent()
+
+// Monthly team sync
+let monthlySync = EventBuilder(summary: "Monthly Team Sync")
+    .starts(at: startTime, timeZone: timeZone)
+    .duration(3600) // 1 hour
+    .repeatsMonthly(every: 1, count: 12)
+    .organizer(email: "manager@company.com", name: "Team Manager")
+    .categories("Team", "Sync")
+    .confirmed()
+    .addAlarm(action: .display, minutesBefore: 30, description: "Monthly sync starting")
+    .buildEvent()
+
+var calendar = ICalendar(productId: "-//My Company//Team Events//EN")
+calendar.name = "Team Calendar"
+calendar.addEvent(weeklyStandUp)
+calendar.addEvent(dailyStandUp)
+calendar.addEvent(monthlySync)
 ```
 
 ### Creating To-Do Items
 
 ```swift
-let todo = client.createTodo(
-    summary: "Complete project documentation",
-    dueDate: Calendar.current.date(byAdding: .day, value: 7, to: Date()),
-    priority: 3,
-    description: "Write comprehensive documentation for the API"
-)
+// Create todo items using the direct function API
+let todoCalendar = ICalendar.calendar(productId: "-//Task Manager//EN") {
+    CalendarName("Project Tasks")
+    CalendarMethod("PUBLISH")
 
-todo.percentComplete = 25
-todo.status = .inProcess
+    ICalendarFactory.createTodo(
+        summary: "Complete project documentation",
+        dueDate: Date().addingTimeInterval(604800), // 1 week
+        priority: 1,
+        description: "Write comprehensive documentation for the new feature"
+    )
 
-var calendar = client.createCalendar()
-calendar.addTodo(todo)
-```
+    ICalendarFactory.createTodo(
+        summary: "Code review for PR #123",
+        startDate: Date(),
+        dueDate: Date().addingTimeInterval(172800), // 2 days
+        priority: 3,
+        description: "Review the authentication module changes"
+    )
+}
 
 ### Working with Alarms
 
 ```swift
-// Display alarm 15 minutes before
-let displayAlarm = client.createDisplayAlarm(
-    description: "Meeting reminder",
-    triggerMinutesBefore: 15
-)
+// Create alarms using direct functions in v2.0
+let calendarWithAlarms = ICalendar.calendar(productId: "-//Alarm Example//EN") {
+    CalendarName("Events with Alarms")
 
-// Audio alarm 5 minutes before
-let audioAlarm = client.createAudioAlarm(
-    triggerMinutesBefore: 5,
-    audioFile: "reminder.wav"
-)
-
-// Email alarm 1 day before
-let emailAlarm = client.createEmailAlarm(
-    summary: "Meeting Tomorrow",
-    description: "Don't forget about the important meeting tomorrow",
-    attendees: [organizer],
-    triggerMinutesBefore: 1440 // 24 hours
-)
-
-event.addAlarm(displayAlarm)
-event.addAlarm(audioAlarm)
-event.addAlarm(emailAlarm)
+    EventBuilder(summary: "Important Meeting")
+        .startDate(Date())
+        .endDate(Date().addingTimeInterval(3600))
+        .location("Conference Room")
+        .addAlarm(ICalendarFactory.createDisplayAlarm(
+            description: "Meeting reminder",
+            triggerMinutesBefore: 15
+        ))
+        .addAlarm(ICalendarFactory.createAudioAlarm(
+            triggerMinutesBefore: 5,
+            audioFile: "reminder.wav"
+        ))
+        .addAlarm(ICalendarFactory.createEmailAlarm(
+            summary: "Meeting Tomorrow",
+            description: "Don't forget about the important meeting tomorrow",
+            attendees: [ICalendarFactory.createAttendee(email: "organizer@company.com")],
+            triggerMinutesBefore: 1440 // 24 hours
+        ))
+}
 ```
 
 ## Configuration
 
-### Client Configuration
+### Parsing and Serialization Options
+
+Version 2.0 provides direct control over parsing and serialization behavior:
 
 ```swift
-let configuration = ICalendar.Configuration(
-    defaultProductId: "-//My Company//My App//EN",
-    validateOnParse: true,
-    validateOnSerialize: true,
-    enableExtensions: true
-)
+// Parse with validation (default)
+let calendar = try ICalendarKit.parseCalendar(from: icsContent, validateOnParse: true)
 
-let client = ICalendar(configuration: configuration)
+// Parse without validation for performance
+let fastCalendar = try ICalendarKit.parseCalendar(from: icsContent, validateOnParse: false)
+
+// Serialize with validation (default)
+let validatedICS = try ICalendarKit.serializeCalendar(calendar, validateBeforeSerializing: true)
+
+// Serialize without validation for performance
+let fastICS = try ICalendarKit.serializeCalendar(calendar, validateBeforeSerializing: false)
 ```
 
-### Serialization Options
+### Working with Multiple Calendars
 
 ```swift
-let serializationOptions = ICalendarSerializer.SerializationOptions(
-    lineLength: 75,
-    sortProperties: true,
-    includeOptionalProperties: true,
-    validateBeforeSerializing: true
-)
+// Parse and work with multiple calendars using v2.0 API
+let icsFiles = ["calendar1.ics", "calendar2.ics", "calendar3.ics"]
+var allCalendars: [ICalendar] = []
 
-let serializer = ICalendarSerializer(options: serializationOptions)
-let serialized = try serializer.serialize(calendar)
+for filename in icsFiles {
+    let url = URL(fileURLWithPath: filename)
+    let calendar = try ICalendarKit.parseCalendar(from: url, validateOnParse: false) // Skip validation for performance
+    allCalendars.append(calendar)
+}
+
+// Serialize multiple calendars together
+let combinedICS = try ICalendarKit.serializeCalendars(allCalendars, validateBeforeSerializing: true)
+
+// Create a merged calendar from multiple sources
+let mergedCalendar = ICalendar.calendar(productId: "-//Merged Calendar//EN") {
+    CalendarName("Combined Events")
+    CalendarDescription("Events from multiple sources")
+
+    for calendar in allCalendars {
+        for event in calendar.events {
+            event // Add each event to the new calendar
+        }
+    }
+}
 ```
 
 ## Structured Concurrency Support
 
-The library is built with Swift 6 structured concurrency in mind:
+The library is built with Swift 6 structured concurrency in mind, with full Sendable conformance:
 
 ```swift
-// Concurrent parsing of multiple calendars
-let calendar1 = client.parseCalendar(from: content1)
-let calendar2 = client.parseCalendar(from: content2)
-let calendar3 = client.parseCalendar(from: content3)
+// Concurrent parsing of multiple calendars using v2.0 API
+await withTaskGroup(of: ICalendar.self) { group in
+    let contents = [content1, content2, content3]
+    var calendars: [ICalendar] = []
 
-let calendars = try [calendar1, calendar2, calendar3]
+    for content in contents {
+        group.addTask {
+            return try ICalendarKit.parseCalendar(from: content, validateOnParse: true)
+        }
+    }
+
+    for await calendar in group {
+        calendars.append(calendar)
+    }
+
+    return calendars
+}
 
 // Process calendars concurrently
-withTaskGroup { group in
+await withTaskGroup(of: String.self) { group in
     for calendar in calendars {
         group.addTask {
-            let serialized = try client.serializeCalendar(calendar)
+            return try ICalendarKit.serializeCalendar(calendar, validateBeforeSerializing: true)
+        }
+    }
+
+    for await serialized in group {
+        // Handle serialized calendar
+        print("Processed calendar: \(serialized.prefix(100))...")
+    }
+}
             // Process serialized calendar...
         }
     }
@@ -410,114 +630,139 @@ This library includes comprehensive support for RFC 7986 extensions and popular 
 #### Calendar-Level Properties
 
 ```swift
-var calendar = client.createCalendar()
+// Create calendar with RFC 7986 properties
+var calendar = ICalendar(productId: "-//My Company//My Calendar//EN")
 
 // RFC 7986 calendar properties
 calendar.name = "My Calendar"
 calendar.calendarDescription = "Personal events and appointments"
-calendar.color = "blue"
-calendar.refreshInterval = client.createRefreshInterval(hours: 1)
-calendar.source = "https://example.com/calendar.ics"
-calendar.calendarUID = "unique-calendar-id"
-calendar.images = [
-    "https://example.com/calendar-icon.png",
-    "https://example.com/calendar-banner.jpg"
-]
+
+// Add RFC 7986 extended properties
+calendar.properties.append(contentsOf: [
+    ICalProperty(name: "COLOR", value: "blue"),
+    ICalProperty(name: "REFRESH-INTERVAL", value: "PT1H"),
+    ICalProperty(name: "SOURCE", value: "https://example.com/calendar.ics"),
+    ICalProperty(name: "IMAGE", value: "https://example.com/calendar-icon.png")
+])
 ```
 
 #### Event Extensions
 
 ```swift
-var event = client.createEvent(summary: "Conference", startDate: Date())
+// Create event with RFC 7986 extensions
+let conference = EventBuilder(summary: "International Conference 2024")
+    .starts(at: Date(), timeZone: TimeZone.current)
+    .duration(28800) // 8 hours
+    .location("Convention Center")
+    .description("Annual technology conference")
+    .categories("Conference", "Technology")
+    .confirmed()
+    .buildEvent()
 
-// Color coding
-event.color = "red"
+// Add RFC 7986 extended properties to the event
+conference.properties.append(contentsOf: [
+    ICalProperty(name: "COLOR", value: "red"),
+    ICalProperty(name: "GEO", value: "37.7749;-122.4194"),
+    ICalProperty(name: "IMAGE", value: "https://conference.com/logo.png"),
+    ICalProperty(name: "CONFERENCE", value: "https://meet.google.com/conference-room")
+])
 
-// Geographic coordinates
-event.geo = client.createGeoCoordinate(latitude: 37.7749, longitude: -122.4194)
-
-// Associated images
-event.images = [
-    "https://conference.com/logo.png",
-    "https://conference.com/venue.jpg"
-]
-
-// Conference information
-event.conferences = [
-    "https://meet.google.com/conference-room",
-    "tel:+1-555-123-4567,,789123",
-    "https://zoom.us/j/123456789"
-]
+calendar.addEvent(conference)
 ```
 
 #### Todo and Journal Extensions
 
 ```swift
-// Todo with extensions
-var todo = client.createTodo(summary: "Design review")
-todo.color = "purple"
-todo.images = ["https://company.com/design-spec.pdf"]
-todo.conferences = ["https://company.slack.com/channels/design"]
+// Todo with RFC 7986 extensions
+var todo = ICalTodo()
+todo.summary = "Design review"
+todo.dueDate = ICalDateTime(date: Date().addingTimeInterval(604800)) // 1 week
+todo.properties.append(contentsOf: [
+    ICalProperty(name: "COLOR", value: "purple"),
+    ICalProperty(name: "IMAGE", value: "https://company.com/design-spec.pdf"),
+    ICalProperty(name: "CONFERENCE", value: "https://company.slack.com/channels/design")
+])
 
 // Journal with extensions
-var journal = ICalJournal(summary: "Trip notes")
-journal.color = "green"
-journal.geo = client.createGeoCoordinate(latitude: 40.7128, longitude: -74.0060)
-journal.images = ["https://photos.com/trip-photo.jpg"]
+var journal = ICalJournal()
+journal.summary = "Trip notes"
+journal.description = "Notes from business trip to New York"
+journal.dateTimeStart = ICalDateTime(date: Date())
+journal.properties.append(contentsOf: [
+    ICalProperty(name: "COLOR", value: "green"),
+    ICalProperty(name: "GEO", value: "40.7128;-74.0060"),
+    ICalProperty(name: "IMAGE", value: "https://photos.com/trip-photo.jpg")
+])
+
+calendar.addTodo(todo)
+calendar.addJournal(journal)
 ```
 
 ### X-WR Extensions (Apple/CalDAV)
 
 ```swift
-var calendar = client.createCalendar()
+// Create calendar with X-WR extensions (Apple/CalDAV)
+var calendar = ICalendar(productId: "-//My Company//Work Calendar//EN")
 
 // X-WR calendar extensions
-calendar.displayName = "Work Calendar"           // X-WR-CALNAME
-calendar.xwrDescription = "Work-related events"  // X-WR-CALDESC
-calendar.xwrTimeZone = "America/New_York"       // X-WR-TIMEZONE
-calendar.relatedCalendarId = "parent-cal-123"   // X-WR-RELCALID
-calendar.publishedTTL = "PT1H"                  // X-PUBLISHED-TTL
+calendar.properties.append(contentsOf: [
+    ICalProperty(name: "X-WR-CALNAME", value: "Work Calendar"),
+    ICalProperty(name: "X-WR-CALDESC", value: "Work-related events"),
+    ICalProperty(name: "X-WR-TIMEZONE", value: "America/New_York"),
+    ICalProperty(name: "X-WR-RELCALID", value: "parent-cal-123"),
+    ICalProperty(name: "X-PUBLISHED-TTL", value: "PT1H")
+])
 ```
 
 ### Enhanced Calendar Creation
 
 ```swift
-// Create calendar with all extensions at once
-let calendar = client.createCalendar(
-    name: "Extended Calendar",
-    description: "Full-featured calendar",
-    color: "corporate-blue",
-    displayName: "Corp Cal",
-    timeZone: "America/Los_Angeles",
-    refreshInterval: client.createRefreshInterval(days: 1),
-    source: "https://api.company.com/calendar.ics"
-)
+// Create comprehensive calendar with all extensions
+var extendedCalendar = ICalendar(productId: "-//Corporate//Extended Calendar//EN")
+extendedCalendar.name = "Extended Calendar"
+extendedCalendar.calendarDescription = "Full-featured calendar"
+
+// Add comprehensive properties
+extendedCalendar.properties.append(contentsOf: [
+    // RFC 7986 properties
+    ICalProperty(name: "COLOR", value: "corporate-blue"),
+    ICalProperty(name: "REFRESH-INTERVAL", value: "P1D"),
+    ICalProperty(name: "SOURCE", value: "https://api.company.com/calendar.ics"),
+    
+    // X-WR extensions
+    ICalProperty(name: "X-WR-CALNAME", value: "Corp Cal"),
+    ICalProperty(name: "X-WR-TIMEZONE", value: "America/Los_Angeles"),
+    ICalProperty(name: "METHOD", value: "PUBLISH")
+])
 ```
 
 ### Timezone Support
 
-The library supports both String identifiers and Foundation TimeZone objects:
+The library provides comprehensive timezone support:
 
 ```swift
-// String-based timezone identifiers (for iCalendar properties)
-let basicTZ = client.createBasicTimeZone("America/New_York")
-// Sets: TZID, TZURL, X-LIC-LOCATION properties
-
-// Foundation TimeZone integration
-if let timeZone = TimeZone(identifier: "Europe/London") {
-    // Create timezone from Foundation TimeZone
-    let tz = client.createBasicTimeZone(timeZone)
-    
-    // Generate TZURL
-    let tzUrl = client.generateTZURL(for: timeZone)
-    // "http://tzurl.org/zoneinfo-outlook/Europe/London"
-    
-    // Set calendar timezone
-    calendar.setXwrTimeZone(timeZone)  // Sets X-WR-TIMEZONE
+// Add timezone components to calendar
+if let nyTimeZone = TimeZoneRegistry.shared.getTimeZone(for: "America/New_York") {
+    calendar.addTimeZone(nyTimeZone)
 }
 
-// Round-trip: ICalTimeZone back to Foundation TimeZone
-let foundationTZ = basicTZ.foundationTimeZone  // TimeZone?
+if let londonTimeZone = TimeZoneRegistry.shared.getTimeZone(for: "Europe/London") {
+    calendar.addTimeZone(londonTimeZone)
+}
+
+// Create events with specific timezones
+let nyEvent = EventBuilder(summary: "New York Meeting")
+    .starts(at: Date(), timeZone: TimeZone(identifier: "America/New_York")!)
+    .duration(3600)
+    .buildEvent()
+
+let londonEvent = EventBuilder(summary: "London Conference Call")
+    .starts(at: Date().addingTimeInterval(3600), timeZone: TimeZone(identifier: "Europe/London")!)
+    .duration(1800)
+    .buildEvent()
+
+calendar.addEvent(nyEvent)
+calendar.addEvent(londonEvent)
 ```
 
 ### Enhanced ATTACH Property Support
@@ -525,259 +770,284 @@ let foundationTZ = basicTZ.foundationTimeZone  // TimeZone?
 The library supports both URI references and base64-encoded binary attachments:
 
 ```swift
-// URI attachment
-let uriAttachment = client.createURIAttachment(
-    "https://example.com/document.pdf", 
-    mediaType: "application/pdf"
-)
+// Create event with attachments
+let presentationEvent = EventBuilder(summary: "Quarterly Presentation")
+    .starts(at: Date(), timeZone: TimeZone.current)
+    .duration(5400) // 90 minutes
+    .location("Board Room")
+    .buildEvent()
 
-// Binary attachment with base64 encoding
+// Add URI attachment
+let uriAttachment = ICalAttachment()
+uriAttachment.uri = "https://example.com/presentation.pdf"
+uriAttachment.parameters["FMTTYPE"] = "application/pdf"
+presentationEvent.attachments.append(uriAttachment)
+
+// Add binary attachment with base64 encoding (if you have image data)
 let imageData = Data(/* your image data */)
-let binaryAttachment = client.createBinaryAttachment(imageData, mediaType: "image/png")
+let binaryAttachment = ICalAttachment()
+binaryAttachment.binaryData = imageData
+binaryAttachment.parameters["ENCODING"] = "BASE64"
+binaryAttachment.parameters["FMTTYPE"] = "image/png"
+presentationEvent.attachments.append(binaryAttachment)
 
-// Add attachments to events
-client.addURIAttachmentToEvent(in: &calendar, eventUID: eventID, uri: "https://example.com/file.pdf")
-client.addBinaryAttachmentToEvent(in: &calendar, eventUID: eventID, data: imageData, mediaType: "image/jpeg")
-
-// Events, todos, and journals all support attachments
-event.attachments = [uriAttachment, binaryAttachment]
+calendar.addEvent(presentationEvent)
 ```
 
 ### Utility Methods
 
 ```swift
-// Geographic coordinates
-let geo = client.createGeoCoordinate(latitude: 37.7749, longitude: -122.4194)
-print(geo.stringValue) // "37.774900;-122.419400"
+// Geographic coordinates helper
+extension ICalProperty {
+    static func geo(latitude: Double, longitude: Double) -> ICalProperty {
+        return ICalProperty(name: "GEO", value: "\(latitude);\(longitude)")
+    }
+    
+    static func refreshInterval(hours: Int) -> ICalProperty {
+        return ICalProperty(name: "REFRESH-INTERVAL", value: "PT\(hours)H")
+    }
+}
 
-// Refresh intervals
-let interval = client.createRefreshInterval(weeks: 1, days: 2, hours: 3, minutes: 30)
+// Usage examples
+let locationEvent = EventBuilder(summary: "San Francisco Meetup")
+    .starts(at: Date(), timeZone: TimeZone.current)
+    .duration(7200)
+    .location("Golden Gate Park")
+    .buildEvent()
 
-// Update events with extensions
-client.updateEventColor(in: &calendar, eventUID: eventID, newColor: "orange")
-client.addEventImage(in: &calendar, eventUID: eventID, imageURI: "https://example.com/image.png")
-client.updateEventLocation(in: &calendar, eventUID: eventID, latitude: 40.7128, longitude: -74.0060)
-client.addEventConference(in: &calendar, eventUID: eventID, conferenceURI: "https://meet.google.com/abc-123")
+// Add geographic coordinates
+locationEvent.properties.append(.geo(latitude: 37.7749, longitude: -122.4194))
+
+// Add refresh interval to calendar
+calendar.properties.append(.refreshInterval(hours: 2))
+
+calendar.addEvent(locationEvent)
 ```
 
 ## Advanced RFC Features
 
-This section showcases the comprehensive RFC implementation capabilities that set iCalendar Kit apart as a professional-grade calendar library:
+This section showcases the comprehensive RFC implementation capabilities:
 
 ### 🚀 **Multi-RFC Integration**
 
-iCalendar Kit seamlessly integrates features from multiple RFCs to provide enterprise-level functionality:
+iCalendar Kit integrates features from multiple RFCs for enterprise functionality:
 
 ```swift
-import iCalendarKit
+import ICalendar
 
-let client = iCalendarClient()
-var calendar = client.createCalendar()
+// RFC 5545 + RFC 7986 Integration
+var calendar = ICalendar(productId: "-//Corporate//Events//EN")
 
-// RFC 5545 + RFC 7986 + RFC 6321 Integration
-let eventID = client.addEvent(
-    to: &calendar,
-    title: "International Conference 2024",
-    start: Date(),
-    end: Date().addingTimeInterval(7200)
-)
+// RFC 5545: Core calendar properties
+calendar.name = "Corporate Events"
+calendar.calendarDescription = "Company-wide events and meetings"
+calendar.method = "PUBLISH"
 
-// RFC 7986: Enhanced calendar properties
-client.setCalendarColor(&calendar, color: "blue")
-client.setCalendarName(&calendar, name: "Corporate Events")
-client.setCalendarDescription(&calendar, description: "Company-wide events and meetings")
+// RFC 7986: Enhanced properties
+calendar.properties.append(contentsOf: [
+    ICalProperty(name: "COLOR", value: "blue"),
+    ICalProperty(name: "REFRESH-INTERVAL", value: "PT1H"),
+    ICalProperty(name: "SOURCE", value: "https://company.com/calendar.ics")
+])
 
-// RFC 7986: Event enhancements with geographic and conference data
-client.addEventImage(in: &calendar, eventUID: eventID, imageURI: "https://company.com/event-banner.jpg")
-client.updateEventLocation(in: &calendar, eventUID: eventID, latitude: 40.7589, longitude: -73.9851)
-client.addEventConference(in: &calendar, eventUID: eventID, conferenceURI: "https://zoom.us/j/123456789")
+// Create enhanced event
+let conference = EventBuilder(summary: "International Conference 2024")
+    .starts(at: Date(), timeZone: TimeZone.current)
+    .duration(7200) // 2 hours
+    .location("Convention Center")
+    .description("Annual technology conference")
+    .categories("Conference", "Technology")
+    .confirmed()
+    .buildEvent()
 
-// RFC 6321: xCal XML representation support
-let xmlData = try client.exportToXML(calendar)
+// Add RFC 7986 enhancements
+conference.properties.append(contentsOf: [
+    ICalProperty(name: "IMAGE", value: "https://company.com/event-banner.jpg"),
+    ICalProperty(name: "GEO", value: "40.7589;-73.9851"),
+    ICalProperty(name: "CONFERENCE", value: "https://zoom.us/j/123456789")
+])
+
+calendar.addEvent(conference)
 ```
 
-### 📊 **Enterprise Calendar Analytics**
+### 📊 **Calendar Analytics**
 
-Built-in analytics and reporting capabilities using RFC-compliant properties:
+Built-in analysis using RFC-compliant properties:
 
 ```swift
-// Calendar statistics and analysis
-let stats = client.generateCalendarStats(calendar)
-print("Total Events: \(stats.eventCount)")
-print("Recurring Events: \(stats.recurringEventCount)")
-print("Date Range: \(stats.dateRange.start) - \(stats.dateRange.end)")
+// Calendar statistics
+extension ICalendar {
+    var eventCount: Int { events.count }
+    var todoCount: Int { todos.count }
+    var recurringEventCount: Int {
+        events.filter { $0.recurrenceRule != nil }.count
+    }
+    
+    func eventsByCategory() -> [String: [ICalEvent]] {
+        Dictionary(grouping: events) { event in
+            event.categories.first ?? "Uncategorized"
+        }
+    }
+    
+    func eventsByLocation() -> [String: [ICalEvent]] {
+        Dictionary(grouping: events) { event in
+            event.location ?? "No Location"
+        }
+    }
+}
 
-// Event categorization and filtering
-let businessEvents = client.filterEvents(calendar, byCategory: "BUSINESS")
-let highPriorityTodos = client.filterTodos(calendar, byPriority: .high)
+// Usage
+print("Total Events: \(calendar.eventCount)")
+print("Recurring Events: \(calendar.recurringEventCount)")
 
-// Geographic distribution analysis
-let eventsByLocation = client.groupEventsByLocation(calendar)
-for (location, events) in eventsByLocation {
-    print("Location: \(location) - Events: \(events.count)")
+let categoryStats = calendar.eventsByCategory()
+for (category, events) in categoryStats {
+    print("Category: \(category) - Events: \(events.count)")
 }
 ```
 
-### 🌐 **Advanced Timezone and Localization**
+### 🌐 **Advanced Timezone Support**
 
-Comprehensive timezone support with RFC 7808 compliance:
-
-```swift
-// Multiple timezone support within single calendar
-let nycTimezone = TimeZone(identifier: "America/New_York")!
-let londonTimezone = TimeZone(identifier: "Europe/London")!
-let tokyoTimezone = TimeZone(identifier: "Asia/Tokyo")!
-
-// Create events across multiple timezones
-let globalMeeting = client.addEvent(
-    to: &calendar,
-    title: "Global Team Sync",
-    start: Date(),
-    end: Date().addingTimeInterval(3600),
-    timezone: nycTimezone
-)
-
-// Automatic timezone conversion for attendees
-client.addAttendeeWithTimezone(
-    to: &calendar,
-    eventUID: globalMeeting,
-    email: "london.team@company.com",
-    preferredTimezone: londonTimezone
-)
-
-client.addAttendeeWithTimezone(
-    to: &calendar,
-    eventUID: globalMeeting,
-    email: "tokyo.team@company.com",
-    preferredTimezone: tokyoTimezone
-)
-```
-
-### 🔗 **Calendar Subscription and Sync**
-
-RFC 7953 (Calendar Availability) integration for advanced scheduling:
+Comprehensive timezone handling with multiple zones:
 
 ```swift
-// Calendar availability checking
-let availability = client.checkAvailability(
-    calendar,
-    from: Date(),
-    to: Date().addingTimeInterval(86400 * 7) // Next 7 days
-)
+// Multiple timezone calendar
+var globalCalendar = ICalendar(productId: "-//Global Corp//Multi-TZ//EN")
 
-// Find optimal meeting times
-let optimalTimes = client.findOptimalMeetingTimes(
-    calendars: [calendar1, calendar2, calendar3],
-    duration: 3600, // 1 hour
-    preferredTimeRange: (start: 9, end: 17) // 9 AM - 5 PM
-)
+// Add timezone components
+let timezones = ["America/New_York", "Europe/London", "Asia/Tokyo"]
+for tzId in timezones {
+    if let tz = TimeZoneRegistry.shared.getTimeZone(for: tzId) {
+        globalCalendar.addTimeZone(tz)
+    }
+}
 
-// Subscription and refresh handling
-let subscriptionCalendar = client.createSubscriptionCalendar(
-    url: "https://calendar.company.com/public/events.ics",
-    refreshInterval: .daily
-)
+// Create events across timezones
+let nycEvent = EventBuilder(summary: "NYC Team Meeting")
+    .starts(at: Date(), timeZone: TimeZone(identifier: "America/New_York")!)
+    .duration(3600)
+    .organizer(email: "nyc@company.com", name: "NYC Team")
+    .buildEvent()
+
+let londonEvent = EventBuilder(summary: "London Strategy Session")
+    .starts(at: Date().addingTimeInterval(3600), timeZone: TimeZone(identifier: "Europe/London")!)
+    .duration(5400) // 90 minutes
+    .organizer(email: "london@company.com", name: "London Team")
+    .buildEvent()
+
+globalCalendar.addEvent(nycEvent)
+globalCalendar.addEvent(londonEvent)
 ```
 
 ### 🎯 **Advanced Recurrence Patterns**
 
-Complex recurrence handling with RFC 5545 RRULE extensions:
+Complex recurrence handling with proper RRULE generation:
 
 ```swift
-// Business-specific recurrence patterns
-let quarterlyReview = client.addEvent(to: &calendar, title: "Quarterly Review", start: Date(), end: Date().addingTimeInterval(7200))
+// Quarterly business reviews (first Monday of quarter)
+let quarterlyReview = EventBuilder(summary: "Quarterly Business Review")
+    .starts(at: Date(), timeZone: TimeZone.current)
+    .duration(10800) // 3 hours
+    .location("Executive Conference Room")
+    .description("Quarterly review meeting")
+    .organizer(email: "executive@company.com", name: "Executive Team")
+    .categories("Business", "Review")
+    .highPriority()
+    .confirmed()
+    .buildEvent()
 
-// Every quarter on the first Monday
-client.setRecurrenceRule(
-    for: &calendar,
-    eventUID: quarterlyReview,
+// Custom recurrence rule - every 3 months on first Monday
+quarterlyReview.recurrenceRule = ICalRecurrenceRule(
     frequency: .monthly,
     interval: 3,
-    byDay: [.monday],
-    bySetPos: [1]
+    byWeekday: [.monday],
+    bySetpos: [1]
 )
 
-// Complex holiday scheduling
-let holidayPattern = RecurrenceRule(
+// Holiday schedule with exceptions
+let holidayEvent = EventBuilder(summary: "Company Holiday")
+    .starts(at: Date(), timeZone: TimeZone.current)
+    .duration(86400) // All day
+    .description("Company-wide holiday")
+    .categories("Holiday")
+    .buildEvent()
+
+// Yearly recurrence
+holidayEvent.recurrenceRule = ICalRecurrenceRule(
     frequency: .yearly,
     byMonth: [12],
-    byMonthDay: [25],
-    wkst: .monday
+    byMonthday: [25]
 )
 
-// Exception handling for moved holidays
-client.addRecurrenceException(
-    to: &calendar,
-    eventUID: quarterlyReview,
-    exceptionDate: Date() // Specific date to skip
-)
+calendar.addEvent(quarterlyReview)
+calendar.addEvent(holidayEvent)
 ```
 
-### 📱 **Multi-Platform Export Support**
+### 📱 **Serialization and Export**
 
-Export to multiple formats with full RFC compliance:
+Multiple export formats with full RFC compliance:
 
 ```swift
 // Standard iCalendar format (RFC 5545)
-let icsData = client.export(calendar, format: .ics)
+let serializer = ICalendarSerializer()
+let icsString = try serializer.serialize(calendar)
+let icsData = icsString.data(using: .utf8)!
 
-// xCal XML format (RFC 6321)
-let xmlData = try client.export(calendar, format: .xCal)
+// Save to file
+try icsData.write(to: URL(fileURLWithPath: "calendar.ics"))
 
-// jCal JSON format (RFC 7265)
-let jsonData = try client.export(calendar, format: .jCal)
+// Different serialization options
+let compactSerializer = ICalendarSerializer(options: .compact)
+let compactICS = try compactSerializer.serialize(calendar)
 
-// Platform-specific optimizations
-#if os(iOS)
-let eventKitCalendar = client.exportToEventKit(calendar)
-#elseif os(macOS)
-let calendarStoreCalendar = client.exportToCalendarStore(calendar)
-#endif
+// Platform-specific formatting
+let outlookSerializer = ICalendarSerializer()
+let outlookICS = outlookSerializer.serializeForOutlook(calendar)
 
-// Custom formatting options
-let customExport = client.export(calendar, options: ExportOptions(
-    includeExtensions: true,
-    validateRFC: true,
-    prettyPrint: true,
-    timezone: TimeZone.current
-))
+let googleICS = outlookSerializer.serializeForGoogle(calendar)
+
+// Statistics
+let stats = serializer.getStatistics(calendar)
+print("Generated \(stats.totalLines) lines")
+print("Total size: \(stats.totalCharacters) characters")
 ```
 
-### 🔐 **Security and Validation**
+### 🔐 **Validation and Security**
 
-Enterprise-grade security with RFC compliance validation:
+Built-in validation for RFC compliance and security:
 
 ```swift
-// Input validation and sanitization
-let validator = iCalendarValidator()
+// Calendar validation using the parser
+let parser = ICalendarParser()
 
-// Validate against multiple RFC standards
-let validationResult = validator.validate(calendar, against: [
-    .rfc5545, // Core iCalendar
-    .rfc7986, // New Properties
-    .rfc6321, // xCal
-    .rfc7265  // jCal
-])
+do {
+    try parser.validate(calendar)
+    print("Calendar is RFC 5545 compliant")
+} catch {
+    print("Validation error: \(error)")
+}
 
-if !validationResult.isValid {
-    for error in validationResult.errors {
-        print("Validation Error: \(error.description)")
-        print("RFC Violation: \(error.rfcReference)")
+// Content sanitization helpers
+extension String {
+    func sanitized() -> String {
+        // Remove potential script content
+        return self
+            .replacingOccurrences(of: "<script", with: "&lt;script", options: .caseInsensitive)
+            .replacingOccurrences(of: "javascript:", with: "", options: .caseInsensitive)
     }
 }
 
-// Security features
-let secureCalendar = client.createSecureCalendar()
-client.enableDigitalSignatures(for: &secureCalendar)
-client.enableEncryption(for: &secureCalendar, key: encryptionKey)
+// Secure event creation
+let secureEvent = EventBuilder(summary: "Secure Meeting".sanitized())
+    .description("Meeting description".sanitized())
+    .location("Conference Room A".sanitized())
+    .starts(at: Date(), timeZone: TimeZone.current)
+    .duration(3600)
+    .buildEvent()
 
-// Content filtering and sanitization
-let sanitized = client.sanitizeCalendarContent(unsafeCalendar, 
-    options: SanitizationOptions(
-        stripScripts: true,
-        validateURIs: true,
-        maxPropertyLength: 1024
-    ))
+// Validate serialized output
+let serializer = ICalendarSerializer(options: .init(validateBeforeSerializing: true))
+let safeICS = try serializer.serialize(calendar)
 ```
 
 ## RFC Compliance

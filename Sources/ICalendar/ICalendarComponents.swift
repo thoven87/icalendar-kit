@@ -1,677 +1,5 @@
 import Foundation
 
-// MARK: - Calendar Container
-
-/// Represents a complete iCalendar object (VCALENDAR)
-public struct ICalendar: ICalendarComponent, Sendable {
-    public static let componentName = "VCALENDAR"
-
-    public var properties: [ICalendarProperty]
-    public var components: [any ICalendarComponent]
-
-    /// Calendar version (typically "2.0")
-    public var version: String {
-        get { getPropertyValue(ICalPropertyName.version) ?? "2.0" }
-        set { setPropertyValue(ICalPropertyName.version, value: newValue) }
-    }
-
-    /// Product identifier
-    public var productId: String {
-        get { getPropertyValue(ICalPropertyName.productId) ?? "" }
-        set { setPropertyValue(ICalPropertyName.productId, value: newValue) }
-    }
-
-    /// Calendar scale (typically "GREGORIAN")
-    public var calendarScale: String? {
-        get { getPropertyValue(ICalPropertyName.calendarScale) }
-        set { setPropertyValue(ICalPropertyName.calendarScale, value: newValue) }
-    }
-
-    /// iTIP method
-    public var method: String? {
-        get { getPropertyValue(ICalPropertyName.method) }
-        set { setPropertyValue(ICalPropertyName.method, value: newValue) }
-    }
-
-    // MARK: - RFC 7986 Extension Properties
-
-    /// Calendar name
-    public var name: String? {
-        get { getPropertyValue(ICalPropertyName.name) }
-        set { setPropertyValue(ICalPropertyName.name, value: newValue) }
-    }
-
-    /// Calendar description (extended from component-level to calendar-level)
-    public var calendarDescription: String? {
-        get { getPropertyValue(ICalPropertyName.description) }
-        set { setPropertyValue(ICalPropertyName.description, value: newValue) }
-    }
-
-    /// Unique identifier for the calendar
-    public var calendarUID: String? {
-        get { getPropertyValue(ICalPropertyName.uid) }
-        set { setPropertyValue(ICalPropertyName.uid, value: newValue) }
-    }
-
-    /// Last modified date for the calendar
-    public var calendarLastModified: ICalDateTime? {
-        get { getDateTimeProperty(ICalPropertyName.lastModified) }
-        set { setDateTimeProperty(ICalPropertyName.lastModified, value: newValue) }
-    }
-
-    /// Calendar URL (extended from component-level to calendar-level)
-    public var calendarURL: String? {
-        get { getPropertyValue(ICalPropertyName.url) }
-        set { setPropertyValue(ICalPropertyName.url, value: newValue) }
-    }
-
-    /// Calendar categories (extended from component-level to calendar-level)
-    public var calendarCategories: [String] {
-        get { getCategoriesProperty() }
-        set { setCategoriesProperty(newValue) }
-    }
-
-    /// Refresh interval for the calendar
-    public var refreshInterval: ICalDuration? {
-        get { getDurationProperty(ICalPropertyName.refreshInterval) }
-        set { setDurationProperty(ICalPropertyName.refreshInterval, value: newValue) }
-    }
-
-    /// Source URI for the calendar
-    public var source: String? {
-        get { getPropertyValue(ICalPropertyName.source) }
-        set { setPropertyValue(ICalPropertyName.source, value: newValue) }
-    }
-
-    /// Color for the calendar
-    public var color: String? {
-        get { getPropertyValue(ICalPropertyName.color) }
-        set { setPropertyValue(ICalPropertyName.color, value: newValue) }
-    }
-
-    /// Images associated with the calendar
-    public var images: [String] {
-        get {
-            properties
-                .filter { $0.name == ICalPropertyName.image }
-                .map { $0.value }
-        }
-        set {
-            properties.removeAll { $0.name == ICalPropertyName.image }
-            for image in newValue {
-                properties.append(ICalProperty(name: ICalPropertyName.image, value: image))
-            }
-        }
-    }
-
-    // MARK: - X-WR Extension Properties
-
-    /// Calendar display name (X-WR-CALNAME)
-    public var displayName: String? {
-        get { getPropertyValue(ICalPropertyName.xWrCalName) }
-        set { setPropertyValue(ICalPropertyName.xWrCalName, value: newValue) }
-    }
-
-    /// Calendar description (X-WR-CALDESC)
-    public var xwrDescription: String? {
-        get { getPropertyValue(ICalPropertyName.xWrCalDesc) }
-        set { setPropertyValue(ICalPropertyName.xWrCalDesc, value: newValue) }
-    }
-
-    /// Related calendar ID (X-WR-RELCALID)
-    public var relatedCalendarId: String? {
-        get { getPropertyValue(ICalPropertyName.xWrRelCalId) }
-        set { setPropertyValue(ICalPropertyName.xWrRelCalId, value: newValue) }
-    }
-
-    /// Calendar time zone (X-WR-TIMEZONE)
-    public var xwrTimeZone: String? {
-        get { getPropertyValue(ICalPropertyName.xWrTimeZone) }
-        set { setPropertyValue(ICalPropertyName.xWrTimeZone, value: newValue) }
-    }
-
-    /// Set calendar time zone from Foundation TimeZone
-    public mutating func setXwrTimeZone(_ timeZone: TimeZone) {
-        self.xwrTimeZone = timeZone.identifier
-    }
-
-    /// Get Foundation TimeZone from X-WR-TIMEZONE (if available on current system)
-    public var xwrFoundationTimeZone: TimeZone? {
-        guard let identifier = xwrTimeZone else { return nil }
-        return TimeZone(identifier: identifier)
-    }
-
-    /// Published TTL (X-PUBLISHED-TTL)
-    public var publishedTTL: String? {
-        get { getPropertyValue(ICalPropertyName.xPublishedTTL) }
-        set { setPropertyValue(ICalPropertyName.xPublishedTTL, value: newValue) }
-    }
-
-    /// Events contained in this calendar
-    public var events: [ICalEvent] {
-        components.compactMap { $0 as? ICalEvent }
-    }
-
-    /// To-dos contained in this calendar
-    public var todos: [ICalTodo] {
-        components.compactMap { $0 as? ICalTodo }
-    }
-
-    /// Journal entries contained in this calendar
-    public var journals: [ICalJournal] {
-        components.compactMap { $0 as? ICalJournal }
-    }
-
-    /// Time zones defined in the calendar
-    public var timeZones: [ICalTimeZone] {
-        components.compactMap { $0 as? ICalTimeZone }
-    }
-
-    /// RFC 7953: Availability components
-    public var availabilities: [ICalAvailabilityComponent] {
-        get { components.compactMap { $0 as? ICalAvailabilityComponent } }
-        set {
-            components = components.filter { !($0 is ICalAvailabilityComponent) } + newValue
-        }
-    }
-
-    /// RFC 9073: Venue components
-    public var venues: [ICalVenue] {
-        get { components.compactMap { $0 as? ICalVenue } }
-        set {
-            components = components.filter { !($0 is ICalVenue) } + newValue
-        }
-    }
-
-    /// RFC 9073: Location components
-    public var locations: [ICalLocation] {
-        get { components.compactMap { $0 as? ICalLocation } }
-        set {
-            components = components.filter { !($0 is ICalLocation) } + newValue
-        }
-    }
-
-    /// RFC 9073: Resource components
-    public var resources: [ICalResourceComponent] {
-        get { components.compactMap { $0 as? ICalResourceComponent } }
-        set {
-            components = components.filter { !($0 is ICalResourceComponent) } + newValue
-        }
-    }
-
-    public init(properties: [ICalendarProperty] = [], components: [any ICalendarComponent] = []) {
-        self.properties = properties
-        self.components = components
-    }
-
-    public init(productId: String, version: String = "2.0", components: [any ICalendarComponent] = []) {
-        self.properties = [
-            ICalProperty(name: ICalPropertyName.version, value: version),
-            ICalProperty(name: ICalPropertyName.productId, value: productId),
-        ]
-        self.components = components
-    }
-
-    /// Add an event to the calendar
-    public mutating func addEvent(_ event: ICalEvent) {
-        components.append(event)
-    }
-
-    /// Add a to-do to the calendar
-    public mutating func addTodo(_ todo: ICalTodo) {
-        components.append(todo)
-    }
-
-    /// Add a journal entry to the calendar
-    public mutating func addJournal(_ journal: ICalJournal) {
-        components.append(journal)
-    }
-
-    /// Add a time zone to the calendar
-    public mutating func addTimeZone(_ timeZone: ICalTimeZone) {
-        components.append(timeZone)
-    }
-
-    /// Add an availability component to the calendar (RFC 7953)
-    public mutating func addAvailability(_ availability: ICalAvailabilityComponent) {
-        components.append(availability)
-    }
-
-    /// Add a venue to the calendar (RFC 9073)
-    public mutating func addVenue(_ venue: ICalVenue) {
-        components.append(venue)
-    }
-
-    /// Add a location to the calendar (RFC 9073)
-    public mutating func addLocation(_ location: ICalLocation) {
-        components.append(location)
-    }
-
-    /// Add a resource to the calendar (RFC 9073)
-    public mutating func addResource(_ resource: ICalResourceComponent) {
-        components.append(resource)
-    }
-}
-
-// MARK: - Event Component
-
-/// Represents a calendar event (VEVENT)
-public struct ICalEvent: ICalendarComponent, Sendable {
-    public static let componentName = "VEVENT"
-
-    public var properties: [ICalendarProperty]
-    public var components: [any ICalendarComponent]
-
-    /// Unique identifier for the event
-    public var uid: String {
-        get { getPropertyValue(ICalPropertyName.uid) ?? UUID().uuidString }
-        set { setPropertyValue(ICalPropertyName.uid, value: newValue) }
-    }
-
-    /// Date-time stamp (when the event was created/last modified)
-    public var dateTimeStamp: ICalDateTime? {
-        get { getDateTimeProperty(ICalPropertyName.dateTimeStamp) }
-        set { setDateTimeProperty(ICalPropertyName.dateTimeStamp, value: newValue) }
-    }
-
-    /// Start date and time
-    public var dateTimeStart: ICalDateTime? {
-        get { getDateTimeProperty(ICalPropertyName.dateTimeStart) }
-        set { setDateTimeProperty(ICalPropertyName.dateTimeStart, value: newValue) }
-    }
-
-    /// End date and time
-    public var dateTimeEnd: ICalDateTime? {
-        get { getDateTimeProperty(ICalPropertyName.dateTimeEnd) }
-        set { setDateTimeProperty(ICalPropertyName.dateTimeEnd, value: newValue) }
-    }
-
-    /// Duration of the event
-    public var duration: ICalDuration? {
-        get { getDurationProperty(ICalPropertyName.duration) }
-        set { setDurationProperty(ICalPropertyName.duration, value: newValue) }
-    }
-
-    /// Event summary/title
-    public var summary: String? {
-        get { getPropertyValue(ICalPropertyName.summary) }
-        set { setPropertyValue(ICalPropertyName.summary, value: newValue) }
-    }
-
-    /// Event description
-    public var description: String? {
-        get { getPropertyValue(ICalPropertyName.description) }
-        set { setPropertyValue(ICalPropertyName.description, value: newValue) }
-    }
-
-    /// Event location
-    public var location: String? {
-        get { getPropertyValue(ICalPropertyName.location) }
-        set { setPropertyValue(ICalPropertyName.location, value: newValue) }
-    }
-
-    /// Event status
-    public var status: ICalEventStatus? {
-        get {
-            guard let value = getPropertyValue(ICalPropertyName.status) else { return nil }
-            return ICalEventStatus(rawValue: value)
-        }
-        set { setPropertyValue(ICalPropertyName.status, value: newValue?.rawValue) }
-    }
-
-    /// Event transparency
-    public var transparency: ICalTransparency? {
-        get {
-            guard let value = getPropertyValue(ICalPropertyName.transparency) else { return nil }
-            return ICalTransparency(rawValue: value)
-        }
-        set { setPropertyValue(ICalPropertyName.transparency, value: newValue?.rawValue) }
-    }
-
-    /// Event classification
-    public var classification: ICalClassification? {
-        get {
-            guard let value = getPropertyValue(ICalPropertyName.classification) else { return nil }
-            return ICalClassification(rawValue: value)
-        }
-        set { setPropertyValue(ICalPropertyName.classification, value: newValue?.rawValue) }
-    }
-
-    /// Event priority (0-9, where 0 is undefined)
-    public var priority: Int? {
-        get {
-            guard let value = getPropertyValue(ICalPropertyName.priority) else { return nil }
-            return Int(value)
-        }
-        set { setPropertyValue(ICalPropertyName.priority, value: newValue?.description) }
-    }
-
-    /// Sequence number for updates
-    public var sequence: Int? {
-        get {
-            guard let value = getPropertyValue(ICalPropertyName.sequence) else { return nil }
-            return Int(value)
-        }
-        set { setPropertyValue(ICalPropertyName.sequence, value: newValue?.description) }
-    }
-
-    /// Recurrence rule
-    public var recurrenceRule: ICalRecurrenceRule? {
-        get { getRecurrenceRuleProperty(ICalPropertyName.recurrenceRule) }
-        set { setRecurrenceRuleProperty(ICalPropertyName.recurrenceRule, value: newValue) }
-    }
-
-    /// Event organizer
-    public var organizer: ICalAttendee? {
-        get { getAttendeeProperty(ICalPropertyName.organizer) }
-        set { setAttendeeProperty(ICalPropertyName.organizer, value: newValue) }
-    }
-
-    /// Event attendees
-    public var attendees: [ICalAttendee] {
-        get { getAttendeesProperty(ICalPropertyName.attendee) }
-        set { setAttendeesProperty(ICalPropertyName.attendee, values: newValue) }
-    }
-
-    /// Event categories
-    public var categories: [String] {
-        get { getCategoriesProperty() }
-        set { setCategoriesProperty(newValue) }
-    }
-
-    /// Event URL
-    public var url: String? {
-        get { getPropertyValue(ICalPropertyName.url) }
-        set { setPropertyValue(ICalPropertyName.url, value: newValue) }
-    }
-
-    /// Creation date
-    public var created: ICalDateTime? {
-        get { getDateTimeProperty(ICalPropertyName.created) }
-        set { setDateTimeProperty(ICalPropertyName.created, value: newValue) }
-    }
-
-    /// Last modified date
-    public var lastModified: ICalDateTime? {
-        get { getDateTimeProperty(ICalPropertyName.lastModified) }
-        set { setDateTimeProperty(ICalPropertyName.lastModified, value: newValue) }
-    }
-
-    /// Enhanced attachment support with binary and URI
-    public var attachments: [ICalAttachment] {
-        get {
-            let attachProperties = properties.filter { $0.name == ICalPropertyName.attach }
-            return attachProperties.compactMap { property in
-                if property.parameters[ICalParameterName.encoding] == "BASE64" {
-                    guard let data = Data(base64Encoded: property.value) else { return nil }
-                    return ICalAttachment(binaryData: data, mediaType: property.parameters[ICalParameterName.formatType])
-                } else {
-                    return ICalAttachment(uri: property.value, mediaType: property.parameters[ICalParameterName.formatType])
-                }
-            }
-        }
-        set {
-            // Remove existing ATTACH properties
-            properties.removeAll { $0.name == ICalPropertyName.attach }
-
-            // Add new attachment properties
-            for attachment in newValue {
-                var parameters: [String: String] = [:]
-
-                if let mediaType = attachment.mediaType {
-                    parameters[ICalParameterName.formatType] = mediaType
-                }
-
-                if attachment.type == .binary {
-                    parameters[ICalParameterName.encoding] = "BASE64"
-                    parameters[ICalParameterName.valueType] = "BINARY"
-                } else {
-                    parameters[ICalParameterName.valueType] = "URI"
-                }
-
-                let property = ICalProperty(name: ICalPropertyName.attach, value: attachment.value, parameters: parameters)
-                properties.append(property)
-            }
-        }
-    }
-
-    // MARK: - RFC 7986 Extension Properties
-
-    /// Event color
-    public var color: String? {
-        get { getPropertyValue(ICalPropertyName.color) }
-        set { setPropertyValue(ICalPropertyName.color, value: newValue) }
-    }
-
-    /// Images associated with the event
-    public var images: [String] {
-        get {
-            properties
-                .filter { $0.name == ICalPropertyName.image }
-                .map { $0.value }
-        }
-        set {
-            properties.removeAll { $0.name == ICalPropertyName.image }
-            for image in newValue {
-                properties.append(ICalProperty(name: ICalPropertyName.image, value: image))
-            }
-        }
-    }
-
-    /// Conference information for the event
-    public var conferences: [String] {
-        get {
-            properties
-                .filter { $0.name == ICalPropertyName.conference }
-                .map { $0.value }
-        }
-        set {
-            properties.removeAll { $0.name == ICalPropertyName.conference }
-            for conference in newValue {
-                properties.append(ICalProperty(name: ICalPropertyName.conference, value: conference))
-            }
-        }
-    }
-
-    /// Geographic coordinates for the event
-    public var geo: ICalGeoCoordinate? {
-        get {
-            guard let value = getPropertyValue(ICalPropertyName.geo) else { return nil }
-            return ICalGeoCoordinate(from: value)
-        }
-        set { setPropertyValue(ICalPropertyName.geo, value: newValue?.stringValue) }
-    }
-
-    /// Alarms associated with this event
-    /// Event alarms
-    public var alarms: [ICalAlarm] {
-        get { components.compactMap { $0 as? ICalAlarm } }
-        set { components = components.filter { !($0 is ICalAlarm) } + newValue }
-    }
-
-    /// RFC 9253: Enhanced relationships
-    public var enhancedRelationships: [(uid: String, type: ICalEnhancedRelationshipType)] {
-        get {
-            properties
-                .filter { $0.name == ICalPropertyName.relatedTo }
-                .compactMap { property in
-                    let uid = property.value
-                    let relType = property.parameters[ICalParameterName.relationshipType] ?? "PARENT"
-                    guard let type = ICalEnhancedRelationshipType(rawValue: relType) else { return nil }
-                    return (uid: uid, type: type)
-                }
-        }
-        set {
-            // Remove existing RELATED-TO properties
-            properties.removeAll { $0.name == ICalPropertyName.relatedTo }
-
-            // Add new RELATED-TO properties
-            for relationship in newValue {
-                var parameters: [String: String] = [:]
-                parameters[ICalParameterName.relationshipType] = relationship.type.rawValue
-
-                let property = ICalProperty(
-                    name: ICalPropertyName.relatedTo,
-                    value: relationship.uid,
-                    parameters: parameters
-                )
-                properties.append(property)
-            }
-        }
-    }
-
-    /// RFC 9253: External links
-    public var links: [ICalLink] {
-        get {
-            properties
-                .filter { $0.name == ICalPropertyName.link }
-                .compactMap { property in
-                    let href = property.value
-                    let rel = property.parameters[ICalParameterName.rel]
-                    let type = property.parameters[ICalParameterName.formatType]
-                    let title = property.parameters[ICalParameterName.title]
-                    let language = property.parameters[ICalParameterName.language]
-                    return ICalLink(href: href, rel: rel, type: type, title: title, language: language)
-                }
-        }
-        set {
-            // Remove existing LINK properties
-            properties.removeAll { $0.name == ICalPropertyName.link }
-
-            // Add new LINK properties
-            for link in newValue {
-                var parameters: [String: String] = [:]
-                if let rel = link.rel { parameters[ICalParameterName.rel] = rel }
-                if let type = link.type { parameters[ICalParameterName.formatType] = type }
-                if let title = link.title { parameters[ICalParameterName.title] = title }
-                if let language = link.language { parameters[ICalParameterName.language] = language }
-
-                let property = ICalProperty(
-                    name: ICalPropertyName.link,
-                    value: link.href,
-                    parameters: parameters
-                )
-                properties.append(property)
-            }
-        }
-    }
-
-    /// RFC 9253: Semantic concepts
-    public var concepts: [ICalConcept] {
-        get {
-            properties
-                .filter { $0.name == ICalPropertyName.concept }
-                .compactMap { property in
-                    let identifier = property.value
-                    let scheme = property.parameters[ICalParameterName.scheme]
-                    let label = property.parameters[ICalParameterName.label]
-                    let definition = property.parameters["DEFINITION"]
-                    return ICalConcept(identifier: identifier, scheme: scheme, label: label, definition: definition)
-                }
-        }
-        set {
-            // Remove existing CONCEPT properties
-            properties.removeAll { $0.name == ICalPropertyName.concept }
-
-            // Add new CONCEPT properties
-            for concept in newValue {
-                var parameters: [String: String] = [:]
-                if let scheme = concept.scheme { parameters[ICalParameterName.scheme] = scheme }
-                if let label = concept.label { parameters[ICalParameterName.label] = label }
-                if let definition = concept.definition { parameters["DEFINITION"] = definition }
-
-                let property = ICalProperty(
-                    name: ICalPropertyName.concept,
-                    value: concept.identifier,
-                    parameters: parameters
-                )
-                properties.append(property)
-            }
-        }
-    }
-
-    /// RFC 9253: Reference identifier for grouping
-    public var referenceId: String? {
-        get { getPropertyValue(ICalPropertyName.refId) }
-        set { setPropertyValue(ICalPropertyName.refId, value: newValue) }
-    }
-
-    /// RFC 9073: Structured data
-    public var structuredData: ICalStructuredData? {
-        get {
-            guard let value = getPropertyValue(ICalPropertyName.structuredData),
-                let type = getPropertyValue("STRUCTURED-DATA-TYPE"),
-                let dataType = ICalStructuredDataType(rawValue: type)
-            else { return nil }
-            let schema = getPropertyValue("SCHEMA")
-            return ICalStructuredData(type: dataType, data: value, schema: schema)
-        }
-        set {
-            setPropertyValue(ICalPropertyName.structuredData, value: newValue?.data)
-            setPropertyValue("STRUCTURED-DATA-TYPE", value: newValue?.type.rawValue)
-            setPropertyValue("SCHEMA", value: newValue?.schema)
-        }
-    }
-
-    /// RFC 9073: Associated venues
-    public var venues: [ICalVenue] {
-        get { components.compactMap { $0 as? ICalVenue } }
-        set {
-            components = components.filter { !($0 is ICalVenue) } + newValue
-        }
-    }
-
-    /// RFC 9073: Associated locations
-    public var locations: [ICalLocation] {
-        get { components.compactMap { $0 as? ICalLocation } }
-        set {
-            components = components.filter { !($0 is ICalLocation) } + newValue
-        }
-    }
-
-    /// RFC 9073: Associated resources
-    public var resources: [ICalResourceComponent] {
-        get { components.compactMap { $0 as? ICalResourceComponent } }
-        set {
-            components = components.filter { !($0 is ICalResourceComponent) } + newValue
-        }
-    }
-
-    public init(properties: [ICalendarProperty] = [], components: [any ICalendarComponent] = []) {
-        self.properties = properties
-        self.components = components
-    }
-
-    public init(uid: String = UUID().uuidString, summary: String) {
-        self.properties = [
-            ICalProperty(name: ICalPropertyName.uid, value: uid),
-            ICalProperty(name: ICalPropertyName.summary, value: summary),
-            ICalProperty(name: ICalPropertyName.dateTimeStamp, value: ICalendarFormatter.format(dateTime: Date().asICalDateTimeUTC())),
-        ]
-        self.components = []
-    }
-
-    /// Add an alarm to the event
-    public mutating func addAlarm(_ alarm: ICalAlarm) {
-        components.append(alarm)
-    }
-
-    /// Add a venue to the event (RFC 9073)
-    public mutating func addVenue(_ venue: ICalVenue) {
-        components.append(venue)
-    }
-
-    /// Add a location to the event (RFC 9073)
-    public mutating func addLocation(_ location: ICalLocation) {
-        components.append(location)
-    }
-
-    /// Add a resource to the event (RFC 9073)
-    public mutating func addResource(_ resource: ICalResourceComponent) {
-        components.append(resource)
-    }
-}
-
 // MARK: - Todo Component
 
 /// Represents a to-do item (VTODO)
@@ -1419,13 +747,85 @@ public struct ICalVenue: ICalendarComponent, Sendable {
         set { setPropertyValue("ADDRESS", value: newValue) }
     }
 
+    /// Street address
+    public var streetAddress: String? {
+        get { getPropertyValue("STREET-ADDRESS") }
+        set { setPropertyValue("STREET-ADDRESS", value: newValue) }
+    }
+
+    /// City/locality
+    public var locality: String? {
+        get { getPropertyValue("LOCALITY") }
+        set { setPropertyValue("LOCALITY", value: newValue) }
+    }
+
+    /// State/region
+    public var region: String? {
+        get { getPropertyValue("REGION") }
+        set { setPropertyValue("REGION", value: newValue) }
+    }
+
+    /// Country
+    public var country: String? {
+        get { getPropertyValue("COUNTRY") }
+        set { setPropertyValue("COUNTRY", value: newValue) }
+    }
+
+    /// Postal code
+    public var postalCode: String? {
+        get { getPropertyValue("POSTALCODE") }
+        set { setPropertyValue("POSTALCODE", value: newValue) }
+    }
+
     /// Venue geographic coordinates
-    public var geo: ICalGeoCoordinate? {
+    public var geo: ICalGeo? {
         get {
             guard let value = getPropertyValue(ICalPropertyName.geo) else { return nil }
-            return ICalGeoCoordinate(from: value)
+            let coords = value.split(separator: ";").compactMap(Double.init)
+            guard coords.count == 2 else { return nil }
+            return ICalGeo(latitude: coords[0], longitude: coords[1])
         }
-        set { setPropertyValue(ICalPropertyName.geo, value: newValue?.stringValue) }
+        set {
+            if let geo = newValue {
+                setPropertyValue(ICalPropertyName.geo, value: "\(geo.latitude);\(geo.longitude)")
+            } else {
+                setPropertyValue(ICalPropertyName.geo, value: nil)
+            }
+        }
+    }
+
+    /// Location types
+    public var locationTypes: [String] {
+        get {
+            properties
+                .filter { $0.name == "LOCATION-TYPE" }
+                .flatMap { $0.value.components(separatedBy: ",") }
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+        }
+        set {
+            properties.removeAll { $0.name == "LOCATION-TYPE" }
+            if !newValue.isEmpty {
+                let property = ICalProperty(name: "LOCATION-TYPE", value: newValue.joined(separator: ","))
+                properties.append(property)
+            }
+        }
+    }
+
+    /// Categories
+    public var categories: [String] {
+        get {
+            properties
+                .filter { $0.name == ICalPropertyName.categories }
+                .flatMap { $0.value.components(separatedBy: ",") }
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+        }
+        set {
+            properties.removeAll { $0.name == ICalPropertyName.categories }
+            if !newValue.isEmpty {
+                let property = ICalProperty(name: ICalPropertyName.categories, value: newValue.joined(separator: ","))
+                properties.append(property)
+            }
+        }
     }
 
     /// Venue URL
@@ -1490,7 +890,7 @@ public struct ICalVenue: ICalendarComponent, Sendable {
 }
 
 /// VLOCATION component for enhanced location information (RFC 9073)
-public struct ICalLocation: ICalendarComponent, Sendable {
+public struct ICalLocationComponent: ICalendarComponent, Sendable {
     public static let componentName = "VLOCATION"
 
     public var properties: [ICalendarProperty]
@@ -1509,12 +909,46 @@ public struct ICalLocation: ICalendarComponent, Sendable {
     }
 
     /// Location geographic coordinates
-    public var geo: ICalGeoCoordinate? {
+    public var geo: ICalGeo? {
         get {
             guard let value = getPropertyValue(ICalPropertyName.geo) else { return nil }
-            return ICalGeoCoordinate(from: value)
+            let coords = value.split(separator: ";").compactMap(Double.init)
+            guard coords.count == 2 else { return nil }
+            return ICalGeo(latitude: coords[0], longitude: coords[1])
         }
-        set { setPropertyValue(ICalPropertyName.geo, value: newValue?.stringValue) }
+        set {
+            if let geo = newValue {
+                setPropertyValue(ICalPropertyName.geo, value: "\(geo.latitude);\(geo.longitude)")
+            } else {
+                setPropertyValue(ICalPropertyName.geo, value: nil)
+            }
+        }
+    }
+
+    /// Location types
+    public var locationTypes: [String] {
+        get {
+            properties
+                .filter { $0.name == "LOCATION-TYPE" }
+                .flatMap { $0.value.components(separatedBy: ",") }
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+        }
+        set {
+            properties.removeAll { $0.name == "LOCATION-TYPE" }
+            if !newValue.isEmpty {
+                let property = ICalProperty(name: "LOCATION-TYPE", value: newValue.joined(separator: ","))
+                properties.append(property)
+            }
+        }
+    }
+
+    /// Capacity
+    public var capacity: Int? {
+        get {
+            guard let value = getPropertyValue("CAPACITY") else { return nil }
+            return Int(value)
+        }
+        set { setPropertyValue("CAPACITY", value: newValue?.description) }
     }
 
     /// Location address
@@ -1573,6 +1007,23 @@ public struct ICalResourceComponent: ICalendarComponent, Sendable {
             return Int(value)
         }
         set { setPropertyValue("CAPACITY", value: newValue?.description) }
+    }
+
+    /// Categories
+    public var categories: [String] {
+        get {
+            properties
+                .filter { $0.name == ICalPropertyName.categories }
+                .flatMap { $0.value.components(separatedBy: ",") }
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+        }
+        set {
+            properties.removeAll { $0.name == ICalPropertyName.categories }
+            if !newValue.isEmpty {
+                let property = ICalProperty(name: ICalPropertyName.categories, value: newValue.joined(separator: ","))
+                properties.append(property)
+            }
+        }
     }
 
     /// Resource features
@@ -1832,6 +1283,220 @@ public struct ICalBusyComponent: ICalendarComponent, Sendable {
     }
 }
 
+// MARK: - RFC 9073 Participant Component
+
+/// PARTICIPANT component for event/task participants (RFC 9073)
+public struct ICalParticipant: ICalendarComponent, Sendable {
+    public static let componentName = "PARTICIPANT"
+
+    public var properties: [ICalendarProperty]
+    public var components: [any ICalendarComponent]
+
+    /// Unique identifier (required)
+    public var uid: String {
+        get { getPropertyValue(ICalPropertyName.uid) ?? UUID().uuidString }
+        set { setPropertyValue(ICalPropertyName.uid, value: newValue) }
+    }
+
+    /// Participant type (required)
+    public var participantType: ICalParticipantType? {
+        get {
+            guard let value = getPropertyValue("PARTICIPANT-TYPE") else { return nil }
+            return ICalParticipantType(rawValue: value)
+        }
+        set { setPropertyValue("PARTICIPANT-TYPE", value: newValue?.rawValue) }
+    }
+
+    /// Calendar address
+    public var calendarAddress: String? {
+        get { getPropertyValue("CALENDAR-ADDRESS") }
+        set { setPropertyValue("CALENDAR-ADDRESS", value: newValue) }
+    }
+
+    /// Date-time stamp
+    public var dateTimeStamp: ICalDateTime? {
+        get { getDateTimeProperty(ICalPropertyName.dateTimeStamp) }
+        set { setDateTimeProperty(ICalPropertyName.dateTimeStamp, value: newValue) }
+    }
+
+    /// Created date
+    public var created: ICalDateTime? {
+        get { getDateTimeProperty(ICalPropertyName.created) }
+        set { setDateTimeProperty(ICalPropertyName.created, value: newValue) }
+    }
+
+    /// Last modified date
+    public var lastModified: ICalDateTime? {
+        get { getDateTimeProperty(ICalPropertyName.lastModified) }
+        set { setDateTimeProperty(ICalPropertyName.lastModified, value: newValue) }
+    }
+
+    /// Description
+    public var description: String? {
+        get { getPropertyValue(ICalPropertyName.description) }
+        set { setPropertyValue(ICalPropertyName.description, value: newValue) }
+    }
+
+    /// Summary
+    public var summary: String? {
+        get { getPropertyValue(ICalPropertyName.summary) }
+        set { setPropertyValue(ICalPropertyName.summary, value: newValue) }
+    }
+
+    /// Geographic position
+    public var geo: ICalGeo? {
+        get {
+            guard let value = getPropertyValue("GEO") else { return nil }
+            let components = value.split(separator: ";").compactMap(Double.init)
+            guard components.count == 2 else { return nil }
+            return ICalGeo(latitude: components[0], longitude: components[1])
+        }
+        set {
+            if let geo = newValue {
+                setPropertyValue("GEO", value: "\(geo.latitude);\(geo.longitude)")
+            } else {
+                setPropertyValue("GEO", value: nil)
+            }
+        }
+    }
+
+    /// Priority
+    public var priority: Int? {
+        get {
+            guard let value = getPropertyValue(ICalPropertyName.priority) else { return nil }
+            return Int(value)
+        }
+        set { setPropertyValue(ICalPropertyName.priority, value: newValue?.description) }
+    }
+
+    /// Sequence number
+    public var sequence: Int? {
+        get {
+            guard let value = getPropertyValue(ICalPropertyName.sequence) else { return nil }
+            return Int(value)
+        }
+        set { setPropertyValue(ICalPropertyName.sequence, value: newValue?.description) }
+    }
+
+    /// Status
+    public var status: ICalEventStatus? {
+        get {
+            guard let value = getPropertyValue(ICalPropertyName.status) else { return nil }
+            return ICalEventStatus(rawValue: value)
+        }
+        set { setPropertyValue(ICalPropertyName.status, value: newValue?.rawValue) }
+    }
+
+    /// URL
+    public var url: String? {
+        get { getPropertyValue(ICalPropertyName.url) }
+        set { setPropertyValue(ICalPropertyName.url, value: newValue) }
+    }
+
+    /// Categories (multiple)
+    public var categories: [String] {
+        get {
+            properties.filter { $0.name == ICalPropertyName.categories }
+                .compactMap { $0.value }
+                .flatMap { $0.split(separator: ",").map(String.init) }
+        }
+        set {
+            properties.removeAll { $0.name == ICalPropertyName.categories }
+            if !newValue.isEmpty {
+                let categoriesString = newValue.joined(separator: ",")
+                properties.append(ICalProperty(name: ICalPropertyName.categories, value: categoriesString))
+            }
+        }
+    }
+
+    /// Comments (multiple)
+    public var comments: [String] {
+        get { properties.filter { $0.name == "COMMENT" }.compactMap { $0.value } }
+        set {
+            properties.removeAll { $0.name == "COMMENT" }
+            for comment in newValue {
+                properties.append(ICalProperty(name: "COMMENT", value: comment))
+            }
+        }
+    }
+
+    /// Contacts (multiple)
+    public var contacts: [String] {
+        get { properties.filter { $0.name == "CONTACT" }.compactMap { $0.value } }
+        set {
+            properties.removeAll { $0.name == "CONTACT" }
+            for contact in newValue {
+                properties.append(ICalProperty(name: "CONTACT", value: contact))
+            }
+        }
+    }
+
+    /// Locations (VLOCATION sub-components)
+    public var locations: [ICalLocationComponent] {
+        get { components.compactMap { $0 as? ICalLocationComponent } }
+        set {
+            components.removeAll { $0 is ICalLocationComponent }
+            components.append(contentsOf: newValue)
+        }
+    }
+
+    /// Resources (VRESOURCE sub-components)
+    public var resources: [ICalResourceComponent] {
+        get { components.compactMap { $0 as? ICalResourceComponent } }
+        set {
+            components.removeAll { $0 is ICalResourceComponent }
+            components.append(contentsOf: newValue)
+        }
+    }
+
+    public init(
+        uid: String = UUID().uuidString,
+        participantType: ICalParticipantType,
+        properties: [ICalendarProperty] = [],
+        components: [any ICalendarComponent] = []
+    ) {
+        self.properties = properties
+        self.components = components
+        self.uid = uid
+        self.participantType = participantType
+
+        // Set default timestamp
+        if dateTimeStamp == nil {
+            self.dateTimeStamp = ICalDateTime(date: Date())
+        }
+    }
+
+    public init(properties: [ICalendarProperty], components: [any ICalendarComponent]) {
+        self.properties = properties
+        self.components = components
+    }
+}
+
+/// Participant type enumeration
+public enum ICalParticipantType: String, CaseIterable, Sendable {
+    case active = "ACTIVE"
+    case inactive = "INACTIVE"
+    case sponsor = "SPONSOR"
+    case contact = "CONTACT"
+    case booking_contact = "BOOKING-CONTACT"
+    case emergency_contact = "EMERGENCY-CONTACT"
+    case publicity_contact = "PUBLICITY-CONTACT"
+    case planner_contact = "PLANNER-CONTACT"
+    case performer = "PERFORMER"
+    case speaker = "SPEAKER"
+}
+
+/// Geographic position structure
+public struct ICalGeo: Equatable, Hashable, Codable, Sendable {
+    public let latitude: Double
+    public let longitude: Double
+
+    public init(latitude: Double, longitude: Double) {
+        self.latitude = latitude
+        self.longitude = longitude
+    }
+}
+
 // MARK: - Component Extensions for Property Access
 extension ICalendarComponent {
     /// Get a property value by name
@@ -1959,6 +1624,23 @@ extension ICalendarComponent {
             setPropertyValue(ICalPropertyName.categories, value: nil)
         } else {
             setPropertyValue(ICalPropertyName.categories, value: categories.joined(separator: ","))
+        }
+    }
+
+    /// Get a date list property (for EXDATE, RDATE)
+    public func getDateListProperty(_ name: String) -> [ICalDateTime] {
+        guard let property = properties.first(where: { $0.name == name }) else { return [] }
+        return ICalendarFormatter.parseDateList(property.value)
+    }
+
+    /// Set a date list property (for EXDATE, RDATE)
+    public mutating func setDateListProperty(_ name: String, values: [ICalDateTime]) {
+        // Remove existing property
+        properties.removeAll { $0.name == name }
+
+        if !values.isEmpty {
+            let dateListValue = ICalendarFormatter.format(dateList: values)
+            properties.append(ICalProperty(name: name, value: dateListValue))
         }
     }
 }
