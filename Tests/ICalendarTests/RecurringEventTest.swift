@@ -191,7 +191,9 @@ struct RecurringEventTests {
         }
 
         // Add a weekly recurring event
-        let startDate = Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 1, hour: 9))!
+        var dateCalendar = Calendar(identifier: .gregorian)
+        dateCalendar.timeZone = Self.estTimeZone
+        let startDate = dateCalendar.date(from: DateComponents(year: 2024, month: 1, day: 1, hour: 9))!
 
         let recurringEvent = EventBuilder(summary: "Test Recurring Event")
             .starts(at: startDate, timeZone: Self.estTimeZone)
@@ -272,7 +274,9 @@ struct RecurringEventTests {
         }
 
         // Test 1: Weekly weekdays (main use case)
-        let startDate = Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 1, hour: 9))!
+        var dateCalendar = Calendar(identifier: .gregorian)
+        dateCalendar.timeZone = Self.estTimeZone
+        let startDate = dateCalendar.date(from: DateComponents(year: 2024, month: 1, day: 1, hour: 9))!
 
         let weeklyEvent = EventBuilder(summary: "Weekly Weekday Test Event")
             .starts(at: startDate, timeZone: Self.estTimeZone)
@@ -299,7 +303,7 @@ struct RecurringEventTests {
         monthlyEvent.summary = "Monthly First Monday Test"
         monthlyEvent.description = "Should appear on first Monday of each month at 10 AM EST"
         monthlyEvent.dateTimeStart = ICalDateTime(
-            date: Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 1, hour: 10))!,
+            date: dateCalendar.date(from: DateComponents(year: 2024, month: 1, day: 1, hour: 10))!,
             timeZone: Self.estTimeZone
         )
         monthlyEvent.duration = ICalDuration(hours: 2)
