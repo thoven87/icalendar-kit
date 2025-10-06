@@ -20,6 +20,14 @@ package struct ICalendarFormatter {
         return formatter
     }()
 
+    private static let iso8601FloatingFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd'T'HHmmss"
+        formatter.timeZone = nil  // No timezone for floating time
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter
+    }()
+
     private static let dateOnlyFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd"
@@ -30,11 +38,21 @@ package struct ICalendarFormatter {
     package static func format(dateTime: ICalDateTime) -> String {
         if dateTime.isDateOnly {
             return dateOnlyFormatter.string(from: dateTime.date)
-        } else if dateTime.timeZone == nil || dateTime.timeZone?.identifier == "UTC" || dateTime.timeZone?.identifier == "GMT" {
-            return iso8601BasicFormatter.string(from: dateTime.date)
         } else {
-            iso8601LocalFormatter.timeZone = dateTime.timeZone
-            return iso8601LocalFormatter.string(from: dateTime.date)
+            switch dateTime.precision {
+            case .date:
+                return dateOnlyFormatter.string(from: dateTime.date)
+            case .dateTime:
+                // Floating time - no timezone, no Z suffix
+                return iso8601FloatingFormatter.string(from: dateTime.date)
+            case .dateTimeUtc:
+                // UTC time - no timezone, with Z suffix
+                return iso8601BasicFormatter.string(from: dateTime.date)
+            case .dateTimeZoned:
+                // Zoned time - with specific timezone
+                iso8601LocalFormatter.timeZone = dateTime.timeZone
+                return iso8601LocalFormatter.string(from: dateTime.date)
+            }
         }
     }
 

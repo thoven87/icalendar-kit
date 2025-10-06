@@ -629,6 +629,11 @@ public struct ICalTimeZoneComponent: ICalendarComponent, Sendable {
 
     public static var componentName: String { "STANDARD" }  // Or "DAYLIGHT"
 
+    /// Override instance component name to return STANDARD or DAYLIGHT based on isStandard flag
+    public var instanceComponentName: String {
+        isStandard ? "STANDARD" : "DAYLIGHT"
+    }
+
     public var properties: [ICalendarProperty]
     public var components: [any ICalendarComponent]
 
