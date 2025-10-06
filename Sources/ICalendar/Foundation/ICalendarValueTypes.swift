@@ -41,10 +41,12 @@ public struct ICalDateTime: Sendable, Codable, Hashable {
 
         if isDateOnly {
             self.precision = .date
-        } else if timeZone == nil || timeZone?.identifier == "UTC" {
-            self.precision = .dateTimeUtc
+        } else if let tz = timeZone, tz.identifier == "UTC" || tz.identifier == "GMT" {
+            self.precision = .dateTimeUtc  // Explicit UTC timezone
+        } else if timeZone == nil {
+            self.precision = .dateTime  // Floating time (no timezone, no Z)
         } else {
-            self.precision = .dateTimeZoned
+            self.precision = .dateTimeZoned  // Specific timezone
         }
     }
 
