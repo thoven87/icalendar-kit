@@ -259,7 +259,6 @@ struct TimeZoneIntegrationTests {
 
         for tzId in testTimezones {
             guard let foundationTz = TimeZone(identifier: tzId) else {
-                print("Skipping unsupported timezone: \(tzId)")
                 continue
             }
 
@@ -323,8 +322,7 @@ struct TimeZoneIntegrationTests {
             #expect(reparsedCalendar.events.count == 1)
             #expect(reparsedCalendar.version == "2.0")
         } catch {
-            // For now, just log parsing issues - the serialization itself may be valid
-            print("Round-trip parsing note: \(error)")
+            // For now, just ignore parsing issues - the serialization itself may be valid
         }
     }
 
@@ -667,6 +665,142 @@ struct TimeZoneIntegrationTests {
         for line in utcDtstartLines {
             #expect(line.contains("Z"), "UTC DTSTART should have Z suffix: \(line)")
         }
+    }
+
+    @Test("Timezone abbreviations work correctly")
+    func testTimezoneAbbreviations() async throws {
+        let timeZone = TimeZone(identifier: "America/New_York")!
+
+        let winterDate = Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 15))!
+        let summerDate = Calendar.current.date(from: DateComponents(year: 2024, month: 7, day: 15))!
+
+        let winterAbbrev = timeZone.abbreviation(for: winterDate)
+        let summerAbbrev = timeZone.abbreviation(for: summerDate)
+
+        // Verify we get abbreviations
+        #expect(winterAbbrev != nil, "Should have winter abbreviation")
+        #expect(summerAbbrev != nil, "Should have summer abbreviation")
+        #expect(winterAbbrev != summerAbbrev, "Winter and summer abbreviations should be different")
+
+        // Try different localized name options
+        let standardName = timeZone.localizedName(for: .standard, locale: .current)
+        let daylightName = timeZone.localizedName(for: .daylightSaving, locale: .current)
+
+        #expect(standardName != nil, "Should have standard localized name")
+        #expect(daylightName != nil, "Should have daylight localized name")
+    }
+
+    @Test("Timezone component generation works correctly")
+    func testTimezoneComponentGeneration() async throws {
+        // Get the generated timezone
+        guard let vtimezone = TimeZoneRegistry.shared.getTimeZone(for: "America/New_York") else {
+            Issue.record("Failed to get timezone")
+            return
+        }
+
+        // Should have both standard and daylight components
+        #expect(vtimezone.components.count == 2, "Should have 2 components (standard and daylight)")
+
+        let standardComponents = vtimezone.components.compactMap { $0 as? ICalTimeZoneComponent }.filter { $0.isStandard }
+        let daylightComponents = vtimezone.components.compactMap { $0 as? ICalTimeZoneComponent }.filter { !$0.isStandard }
+
+        #expect(standardComponents.count == 1, "Should have 1 standard component")
+        #expect(daylightComponents.count == 1, "Should have 1 daylight component")
+
+        // Verify components have required properties
+        if let standardComponent = standardComponents.first {
+            #expect(standardComponent.timeZoneName != nil, "Standard component should have timezone name")
+            #expect(standardComponent.offsetFrom != nil, "Standard component should have offset from")
+            #expect(standardComponent.offsetTo != nil, "Standard component should have offset to")
+            #expect(standardComponent.dateTimeStart != nil, "Standard component should have start date")
+        }
+
+        if let daylightComponent = daylightComponents.first {
+            #expect(daylightComponent.timeZoneName != nil, "Daylight component should have timezone name")
+            #expect(daylightComponent.offsetFrom != nil, "Daylight component should have offset from")
+            #expect(daylightComponent.offsetTo != nil, "Daylight component should have offset to")
+            #expect(daylightComponent.dateTimeStart != nil, "Daylight component should have start date")
+        }
+
+        // Test serialization
+        var calendar = ICalendar(productId: "-//Test//EN")
+        calendar.addTimeZone(vtimezone)
+
+        let serialized = try ICalendarSerializer().serialize(calendar)
+        #expect(serialized.contains("TZNAME:"), "Should contain TZNAME properties")
+    }
+
+    @Test("Timezone abbreviation robustness across systems")
+    func testTimezoneAbbreviationRobustness() async throws {
+        // Test that we get consistent abbreviations from the system like ical.Net trusts NodaTime
+        let testTimezones = [
+            "America/New_York",
+            "America/Chicago",
+            "America/Denver",
+            "America/Los_Angeles",
+            "America/Phoenix",  // No DST
+            "Europe/London",
+        ]
+
+        for timezoneId in testTimezones {
+            guard let vtimezone = TimeZoneRegistry.shared.getTimeZone(for: timezoneId) else {
+                Issue.record("Failed to generate timezone for \(timezoneId)")
+                continue
+            }
+
+            var calendar = ICalendar(productId: "-//Test//EN")
+            calendar.addTimeZone(vtimezone)
+
+            let serialized = try ICalendarSerializer().serialize(calendar)
+
+            // Should contain TZNAME properties (trust whatever the system gives us)
+            #expect(serialized.contains("TZNAME:"), "Should contain TZNAME properties for \(timezoneId)")
+
+            // Should not contain empty TZNAME values
+            #expect(!serialized.contains("TZNAME:\n"), "Should not have empty TZNAME for \(timezoneId)")
+            #expect(!serialized.contains("TZNAME: "), "Should not have empty TZNAME for \(timezoneId)")
+        }
+    }
+
+    @Test("Europe/London generates proper BST abbreviation")
+    func testEuropeLondonGeneratesProperBST() async throws {
+        guard let vtimezone = TimeZoneRegistry.shared.getTimeZone(for: "Europe/London") else {
+            Issue.record("Failed to generate timezone for Europe/London")
+            return
+        }
+
+        var calendar = ICalendar(productId: "-//Test//EN")
+        calendar.addTimeZone(vtimezone)
+        let serialized = try ICalendarSerializer().serialize(calendar)
+
+        // Should contain proper British timezone abbreviations like ical.Net expects
+        #expect(serialized.contains("TZNAME:GMT"), "Should contain standard timezone name GMT for Europe/London")
+        #expect(serialized.contains("TZNAME:BST"), "Should contain daylight timezone name BST for Europe/London")
+
+        // Should not contain GMT-based fallbacks
+        #expect(!serialized.contains("TZNAME:GMT+"), "Should not use GMT+ fallback for Europe/London")
+        #expect(!serialized.contains("TZNAME:GMT-"), "Should not use GMT- fallback for Europe/London")
+    }
+
+    @Test("RRULE generation for DST transitions")
+    func testRRuleGeneration() async throws {
+        guard let vtimezone = TimeZoneRegistry.shared.getTimeZone(for: "America/New_York") else {
+            Issue.record("Failed to generate timezone for America/New_York")
+            return
+        }
+
+        var calendar = ICalendar(productId: "-//Test//EN")
+        calendar.addTimeZone(vtimezone)
+        let serialized = try ICalendarSerializer().serialize(calendar)
+
+        // Verify RRULE components are present
+        #expect(serialized.contains("RRULE:"), "Should contain RRULE for DST transitions")
+        #expect(serialized.contains("BYDAY="), "Should contain BYDAY in RRULE")
+
+        // Verify proper DST transition rules for America/New_York
+        #expect(serialized.contains("BYDAY=SU"), "DST transitions should happen on Sunday")
+        #expect(serialized.contains("BYMONTH=3"), "Spring transition should be in March")
+        #expect(serialized.contains("BYMONTH=11"), "Fall transition should be in November")
     }
 }
 
