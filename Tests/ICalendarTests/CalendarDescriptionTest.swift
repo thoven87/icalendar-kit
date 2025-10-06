@@ -138,6 +138,3 @@ struct CalendarDescriptionTest {
         #expect(!serialized3.contains("X-WR-CALDESC:"), "X-WR-CALDESC should be removed")
     }
 }
-
-// Note: CalendarBuilder.CalendarDescription() uses X-WR-CALDESC for maximum compatibility
-// This is verified by the implementation in CalendarBuilder.swift line 120-122
