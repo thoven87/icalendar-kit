@@ -15,9 +15,9 @@ public struct ICalEvent: ICalendarComponent, ICalendarBuildable, Sendable {
         set { setPropertyValue(ICalPropertyName.uid, value: newValue) }
     }
 
-    /// Date-time stamp (when the event was created/last modified)
-    public var dateTimeStamp: ICalDateTime? {
-        get { getDateTimeProperty(ICalPropertyName.dateTimeStamp) }
+    /// Date-time stamp (when the event was created/last modified) - required by RFC 5545
+    public var dateTimeStamp: ICalDateTime {
+        get { getDateTimeProperty(ICalPropertyName.dateTimeStamp) ?? ICalDateTime(date: Date()) }
         set { setDateTimeProperty(ICalPropertyName.dateTimeStamp, value: newValue) }
     }
 
@@ -49,6 +49,57 @@ public struct ICalEvent: ICalendarComponent, ICalendarBuildable, Sendable {
     public var description: String? {
         get { getPropertyValue(ICalPropertyName.description) }
         set { setPropertyValue(ICalPropertyName.description, value: newValue) }
+    }
+
+    /// Alternative HTML description
+    /// Automatically sets FMTTYPE=text/html parameter for rich content
+    public var htmlDescription: String? {
+        get {
+            guard let property = properties.first(where: { $0.name == ICalPropertyName.xAltDesc })
+            else { return nil }
+            return property.value
+        }
+        set {
+            // Remove existing X-ALT-DESC properties
+            properties.removeAll { $0.name == ICalPropertyName.xAltDesc }
+
+            if let value = newValue {
+                let property = ICalProperty(
+                    name: ICalPropertyName.xAltDesc,
+                    value: value,
+                    parameters: ["FMTTYPE": "text/html"]
+                )
+                properties.append(property)
+            }
+        }
+    }
+
+    /// Alternative description with custom format type (internal use for builder)
+    /// - Parameters:
+    ///   - description: The alternative description content
+    ///   - formatType: The format type (e.g., "text/html", "text/plain", "text/rtf")
+    internal mutating func setAlternativeDescription(_ description: String, formatType: String) {
+        // Remove existing X-ALT-DESC properties
+        properties.removeAll { $0.name == ICalPropertyName.xAltDesc }
+
+        let property = ICalProperty(
+            name: ICalPropertyName.xAltDesc,
+            value: description,
+            parameters: ["FMTTYPE": formatType]
+        )
+        properties.append(property)
+    }
+
+    /// Get alternative description with its format type
+    /// - Returns: A tuple containing the alternative description and its format type, or nil if not set
+    public func getAlternativeDescriptionWithFormat() -> (description: String, formatType: String?)? {
+        guard let property = properties.first(where: { $0.name == ICalPropertyName.xAltDesc })
+        else {
+            return nil
+        }
+
+        let formatType = property.parameters["FMTTYPE"]
+        return (description: property.value, formatType: formatType)
     }
 
     /// Event location
@@ -405,6 +456,14 @@ public struct ICalEvent: ICalendarComponent, ICalendarBuildable, Sendable {
     public init(properties: [ICalendarProperty] = [], components: [any ICalendarComponent] = []) {
         self.properties = properties
         self.components = components
+
+        // Ensure required properties are set
+        if getPropertyValue(ICalPropertyName.uid) == nil {
+            setPropertyValue(ICalPropertyName.uid, value: UUID().uuidString)
+        }
+        if getDateTimeProperty(ICalPropertyName.dateTimeStamp) == nil {
+            setDateTimeProperty(ICalPropertyName.dateTimeStamp, value: ICalDateTime(date: Date()))
+        }
     }
 
     public init(uid: String = UUID().uuidString, summary: String) {

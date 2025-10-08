@@ -474,11 +474,15 @@ package struct ICalendarFormatter {
 
         var result = ""
         var currentLine = line
+        var isFirstLine = true
 
         while currentLine.count > maxLength {
-            let cutIndex = currentLine.index(currentLine.startIndex, offsetBy: maxLength)
+            // First line can use full maxLength, continuation lines need space for leading space
+            let effectiveLength = isFirstLine ? maxLength : maxLength - 1
+            let cutIndex = currentLine.index(currentLine.startIndex, offsetBy: effectiveLength)
             result += String(currentLine[..<cutIndex]) + "\r\n "
             currentLine = String(currentLine[cutIndex...])
+            isFirstLine = false
         }
 
         result += currentLine

@@ -637,6 +637,9 @@ public struct ICalPropertyName {
     public static let xPublishedTTL = "X-PUBLISHED-TTL"
     public static let xLicLocation = "X-LIC-LOCATION"
 
+    // Microsoft Extension properties
+    public static let xAltDesc = "X-ALT-DESC"
+
     // RFC 7529 Non-Gregorian Recurrence
     public static let rscale = "RSCALE"
 

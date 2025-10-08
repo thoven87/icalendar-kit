@@ -35,16 +35,22 @@ public struct ICalendar: ICalendarComponent, Sendable {
         set { setPropertyValue("METHOD", value: newValue) }
     }
 
-    /// Calendar name (RFC 7986 5.4)
+    /// Calendar name (RFC 7986 5.1) - also sets X-WR-CALNAME for maximum compatibility
     public var name: String? {
-        get { getPropertyValue("NAME") }
-        set { setPropertyValue("NAME", value: newValue) }
+        get { getPropertyValue("NAME") ?? getPropertyValue("X-WR-CALNAME") }
+        set {
+            setPropertyValue("NAME", value: newValue)
+            setPropertyValue("X-WR-CALNAME", value: newValue)  // Also set legacy property for maximum compatibility
+        }
     }
 
-    /// Calendar description (RFC 7986 5.2)
+    /// Calendar description (RFC 7986 5.2) - serializes as X-WR-CALDESC for Apple compatibility
     public var calendarDescription: String? {
-        get { getPropertyValue("DESCRIPTION") }
-        set { setPropertyValue("DESCRIPTION", value: newValue) }
+        get { getPropertyValue("X-WR-CALDESC") ?? getPropertyValue("DESCRIPTION") }
+        set {
+            setPropertyValue("X-WR-CALDESC", value: newValue)
+            setPropertyValue("DESCRIPTION", value: newValue)  // Also set RFC 7986 standard property for maximum compatibility
+        }
     }
 
     /// Calendar UID (RFC 7986 5.3)
@@ -71,14 +77,20 @@ public struct ICalendar: ICalendarComponent, Sendable {
         set { setPropertyValue("IMAGE", value: newValue) }
     }
 
-    /// Refresh interval (RFC 7986 5.7)
+    /// Refresh interval (RFC 7986 5.7) - also sets X-PUBLISHED-TTL for maximum compatibility
     public var refreshInterval: ICalDuration? {
         get {
-            guard let value = getPropertyValue("REFRESH-INTERVAL") else { return nil }
-            return ICalDurationParser.parse(value)
+            if let value = getPropertyValue("REFRESH-INTERVAL") {
+                return ICalDurationParser.parse(value)
+            }
+            if let value = getPropertyValue("X-PUBLISHED-TTL") {
+                return ICalDurationParser.parse(value)
+            }
+            return nil
         }
         set {
             setPropertyValue("REFRESH-INTERVAL", value: newValue?.description)
+            setPropertyValue("X-PUBLISHED-TTL", value: newValue?.description)  // Also set legacy property for maximum compatibility
         }
     }
 
@@ -90,9 +102,9 @@ public struct ICalendar: ICalendarComponent, Sendable {
 
     // MARK: - X-WR Extension Properties
 
-    /// Calendar display name (X-WR-CALNAME)
+    /// Calendar display name (X-WR-CALNAME) - fallback to NAME if not set
     public var displayName: String? {
-        get { getPropertyValue("X-WR-CALNAME") }
+        get { getPropertyValue("X-WR-CALNAME") ?? getPropertyValue("NAME") }
         set { setPropertyValue("X-WR-CALNAME", value: newValue) }
     }
 
@@ -125,9 +137,9 @@ public struct ICalendar: ICalendarComponent, Sendable {
         return TimeZone(identifier: identifier)
     }
 
-    /// Published TTL (X-PUBLISHED-TTL)
+    /// Published TTL (X-PUBLISHED-TTL) - fallback to REFRESH-INTERVAL if not set
     public var publishedTTL: String? {
-        get { getPropertyValue("X-PUBLISHED-TTL") }
+        get { getPropertyValue("X-PUBLISHED-TTL") ?? getPropertyValue("REFRESH-INTERVAL") }
         set { setPropertyValue("X-PUBLISHED-TTL", value: newValue) }
     }
 
@@ -469,19 +481,9 @@ public struct ICalendar: ICalendarComponent, Sendable {
 
     /// Applies RFC 5545 compliance rules to this calendar
     public mutating func applyCompliance() {
-        // Apply rules to properties
-        for index in properties.indices {
-            properties[index] = RFC5545PropertyRules.apply(to: properties[index])
-        }
-
-        // Apply rules to components
-        for index in components.indices {
-            components[index].applyCompliance()
-        }
-
-        // Ensure required properties have defaults
+        // Ensure required calendar properties have defaults
         if productId.isEmpty {
-            productId = "iCalendar-Kit//iCalendar-Kit//EN"
+            productId = "github.com/thoven87/icalendar-kit//NONSGML icalendar-kit 2.0//EN"
         }
 
         if version.isEmpty {
@@ -490,6 +492,69 @@ public struct ICalendar: ICalendarComponent, Sendable {
 
         if calendarScale == nil {
             calendarScale = "GREGORIAN"
+        }
+
+        // Apply compliance to all components (events, todos, etc.)
+        for index in components.indices {
+            components[index].applyCompliance()
+        }
+
+        // Validate that components have required properties
+        for index in components.indices {
+            if var event = components[index] as? ICalEvent {
+                // Ensure events have UID (RFC 5545 requirement)
+                if event.getPropertyValue(ICalPropertyName.uid) == nil {
+                    event.uid = UUID().uuidString
+                }
+
+                // DTSTAMP is now automatically set by constructors
+
+                // Also fix alarms within events
+                var fixedAlarms: [ICalAlarm] = []
+                for var alarm in event.alarms {
+                    if alarm.action == .display && alarm.description == nil {
+                        alarm.description = event.summary ?? "Reminder"
+                    } else if alarm.action == .email {
+                        if alarm.description == nil {
+                            alarm.description = event.summary ?? "Reminder"
+                        }
+                        if alarm.summary == nil {
+                            alarm.summary = event.summary ?? "Event Reminder"
+                        }
+                        if alarm.attendees.isEmpty {
+                            if let organizer = event.organizer {
+                                let attendee = ICalAttendee(email: organizer.email, commonName: organizer.commonName)
+                                alarm.attendees = [attendee]
+                            } else {
+                                let attendee = ICalAttendee(email: "noreply@example.com", commonName: "Event Notification")
+                                alarm.attendees = [attendee]
+                            }
+                        }
+                    }
+                    fixedAlarms.append(alarm)
+                }
+                event.alarms = fixedAlarms
+
+                components[index] = event
+            } else if var todo = components[index] as? ICalTodo {
+                // Ensure todos have UID (RFC 5545 requirement)
+                if todo.getPropertyValue(ICalPropertyName.uid) == nil {
+                    todo.uid = UUID().uuidString
+                }
+
+                // DTSTAMP is now automatically set by constructors
+
+                components[index] = todo
+            } else if var journal = components[index] as? ICalJournal {
+                // Ensure journals have UID (RFC 5545 requirement)
+                if journal.getPropertyValue(ICalPropertyName.uid) == nil {
+                    journal.uid = UUID().uuidString
+                }
+
+                // DTSTAMP is now automatically set by constructors
+
+                components[index] = journal
+            }
         }
     }
 
@@ -583,7 +648,7 @@ public struct ICalendar: ICalendarComponent, Sendable {
 extension ICalendar {
     /// Creates a calendar with a single event using result builder
     public static func withEvent(
-        productId: String = "iCalendar-Kit//iCalendar-Kit//EN",
+        productId: String = "github.com/thoven87/icalendar-kit//NONSGML icalendar-kit 2.0//EN",
         event: () -> ICalEvent
     ) -> ICalendar {
         var calendar = ICalendar(productId: productId)
@@ -594,7 +659,7 @@ extension ICalendar {
     /// Creates a calendar with multiple events
     public static func withEvents(
         _ events: [ICalEvent],
-        productId: String = "iCalendar-Kit//iCalendar-Kit//EN"
+        productId: String = "github.com/thoven87/icalendar-kit//NONSGML icalendar-kit 2.0//EN"
     ) -> ICalendar {
         var calendar = ICalendar(productId: productId)
         calendar.addEvents(events)
@@ -602,27 +667,8 @@ extension ICalendar {
     }
 }
 
-// MARK: - Forward Declarations
-
-// These will be implemented in separate files
-internal struct RFC5545PropertyRules {
-    static func apply(to property: ICalendarProperty) -> ICalendarProperty {
-        property  // Placeholder implementation
-    }
-}
-
-// ICalDurationParser is now defined in Parsing/ICalDateTimeFormatting.swift
-
 extension ICalDuration {
     var description: String {
         formatForProperty()
     }
 }
-
-// Note: Component implementations are now in separate files:
-// - ICalEvent.swift
-// - ICalTodo.swift
-// - ICalJournal.swift
-// - ICalTimeZone.swift
-// - ICalAlarm.swift
-// - And others in ICalendarComponents.swift

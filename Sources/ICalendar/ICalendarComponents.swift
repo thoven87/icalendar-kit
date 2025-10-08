@@ -15,9 +15,9 @@ public struct ICalTodo: ICalendarComponent, Sendable {
         set { setPropertyValue(ICalPropertyName.uid, value: newValue) }
     }
 
-    /// Date-time stamp
-    public var dateTimeStamp: ICalDateTime? {
-        get { getDateTimeProperty(ICalPropertyName.dateTimeStamp) }
+    /// Date-time stamp (required by RFC 5545)
+    public var dateTimeStamp: ICalDateTime {
+        get { getDateTimeProperty(ICalPropertyName.dateTimeStamp) ?? ICalDateTime(date: Date()) }
         set { setDateTimeProperty(ICalPropertyName.dateTimeStamp, value: newValue) }
     }
 
@@ -195,6 +195,14 @@ public struct ICalTodo: ICalendarComponent, Sendable {
     public init(properties: [ICalendarProperty] = [], components: [any ICalendarComponent] = []) {
         self.properties = properties
         self.components = components
+
+        // Ensure required properties are set
+        if getPropertyValue(ICalPropertyName.uid) == nil {
+            setPropertyValue(ICalPropertyName.uid, value: UUID().uuidString)
+        }
+        if getDateTimeProperty(ICalPropertyName.dateTimeStamp) == nil {
+            setDateTimeProperty(ICalPropertyName.dateTimeStamp, value: ICalDateTime(date: Date()))
+        }
     }
 
     public init(uid: String = UUID().uuidString, summary: String) {
@@ -228,9 +236,9 @@ public struct ICalJournal: ICalendarComponent, Sendable {
         set { setPropertyValue(ICalPropertyName.uid, value: newValue) }
     }
 
-    /// Date-time stamp
-    public var dateTimeStamp: ICalDateTime? {
-        get { getDateTimeProperty(ICalPropertyName.dateTimeStamp) }
+    /// Date-time stamp (required by RFC 5545)
+    public var dateTimeStamp: ICalDateTime {
+        get { getDateTimeProperty(ICalPropertyName.dateTimeStamp) ?? ICalDateTime(date: Date()) }
         set { setDateTimeProperty(ICalPropertyName.dateTimeStamp, value: newValue) }
     }
 
@@ -361,6 +369,14 @@ public struct ICalJournal: ICalendarComponent, Sendable {
     public init(properties: [ICalendarProperty] = [], components: [any ICalendarComponent] = []) {
         self.properties = properties
         self.components = components
+
+        // Ensure required properties are set
+        if getPropertyValue(ICalPropertyName.uid) == nil {
+            setPropertyValue(ICalPropertyName.uid, value: UUID().uuidString)
+        }
+        if getDateTimeProperty(ICalPropertyName.dateTimeStamp) == nil {
+            setDateTimeProperty(ICalPropertyName.dateTimeStamp, value: ICalDateTime(date: Date()))
+        }
     }
 
     public init(uid: String = UUID().uuidString, summary: String) {
@@ -535,10 +551,40 @@ public struct ICalAlarm: ICalendarComponent, Sendable {
         }
     }
 
-    public init(action: ICalAlarmAction, trigger: String) {
+    /// Create DISPLAY alarm (requires DESCRIPTION)
+    public init(displayAlarm trigger: String, description: String) {
         self.properties = [
-            ICalProperty(name: ICalPropertyName.action, value: action.rawValue),
+            ICalProperty(name: ICalPropertyName.action, value: ICalAlarmAction.display.rawValue),
             ICalProperty(name: ICalPropertyName.trigger, value: trigger),
+            ICalProperty(name: ICalPropertyName.description, value: description),
+        ]
+        self.components = []
+    }
+
+    /// Create AUDIO alarm (only requires ACTION and TRIGGER)
+    public init(audioAlarm trigger: String) {
+        self.properties = [
+            ICalProperty(name: ICalPropertyName.action, value: ICalAlarmAction.audio.rawValue),
+            ICalProperty(name: ICalPropertyName.trigger, value: trigger),
+        ]
+        self.components = []
+    }
+
+    /// Create EMAIL alarm (requires DESCRIPTION, SUMMARY, and ATTENDEE)
+    public init(emailAlarm trigger: String, description: String, summary: String, attendee: ICalAttendee) {
+        // Build attendee parameters
+        var attendeeParams: [String: String] = [:]
+        if let name = attendee.commonName { attendeeParams["CN"] = name }
+        if let role = attendee.role { attendeeParams["ROLE"] = role.rawValue }
+        if let status = attendee.participationStatus { attendeeParams["PARTSTAT"] = status.rawValue }
+        if let rsvp = attendee.rsvp { attendeeParams["RSVP"] = rsvp ? "TRUE" : "FALSE" }
+
+        self.properties = [
+            ICalProperty(name: ICalPropertyName.action, value: ICalAlarmAction.email.rawValue),
+            ICalProperty(name: ICalPropertyName.trigger, value: trigger),
+            ICalProperty(name: ICalPropertyName.description, value: description),
+            ICalProperty(name: ICalPropertyName.summary, value: summary),
+            ICalProperty(name: ICalPropertyName.attendee, value: "mailto:\(attendee.email)", parameters: attendeeParams),
         ]
         self.components = []
     }

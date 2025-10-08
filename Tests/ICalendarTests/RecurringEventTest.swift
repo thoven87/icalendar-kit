@@ -204,7 +204,7 @@ struct RecurringEventTests {
             .categories("Test")
             .confirmed()
             .createdNow()
-            .addAlarm(action: .display, minutesBefore: 15, description: "Test recurring event reminder")
+            .addAlarm(.display(description: "Test recurring event reminder"), trigger: .minutesBefore(15))
             .buildEvent()
 
         calendar.addEvent(recurringEvent)
@@ -286,7 +286,7 @@ struct RecurringEventTests {
             .categories("Test", "Weekly")
             .confirmed()
             .createdNow()
-            .addAlarm(action: .display, minutesBefore: 15, description: "Weekly test event reminder")
+            .addAlarm(.display(description: "Weekly test event reminder"), trigger: .minutesBefore(15))
             .buildEvent()
 
         calendar.addEvent(weeklyEvent)
@@ -314,8 +314,7 @@ struct RecurringEventTests {
         monthlyEvent.status = .confirmed
 
         // Add alarm
-        var alarm = ICalAlarm(action: .display, trigger: "-PT30M")
-        alarm.description = "Monthly reminder in 30 minutes"
+        let alarm = ICalAlarm(displayAlarm: "-PT30M", description: "Monthly reminder in 30 minutes")
         monthlyEvent.addAlarm(alarm)
 
         calendar.addEvent(monthlyEvent)

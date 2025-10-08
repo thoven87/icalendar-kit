@@ -75,6 +75,20 @@ public struct EventBuilder: Sendable, ICalendarBuildable {
         return builder
     }
 
+    /// Sets the HTML description (automatically sets FMTTYPE=text/html)
+    public func htmlDescription(_ htmlDescription: String) -> EventBuilder {
+        var builder = self
+        builder.event.htmlDescription = htmlDescription
+        return builder
+    }
+
+    /// Sets alternative description with custom format type
+    public func alternativeDescription(_ description: String, formatType: String) -> EventBuilder {
+        var builder = self
+        builder.event.setAlternativeDescription(description, formatType: formatType)
+        return builder
+    }
+
     /// Sets the event location
     public func location(_ location: String) -> EventBuilder {
         var builder = self
@@ -189,18 +203,44 @@ public struct EventBuilder: Sendable, ICalendarBuildable {
         return builder
     }
 
-    /// Adds an attendee to the event
-    public func attendee(email: String, name: String? = nil, required: Bool = true) -> EventBuilder {
+    /// Adds an attendee to the event with full RFC 5545 support
+    public func addAttendee(
+        email: String,
+        name: String? = nil,
+        role: ICalRole = .requiredParticipant,
+        status: ICalParticipationStatus = .needsAction,
+        userType: ICalUserType = .individual,
+        rsvp: Bool = true,
+        delegatedFrom: String? = nil,
+        delegatedTo: String? = nil,
+        sentBy: String? = nil,
+        directory: String? = nil,
+        member: [String]? = nil
+    ) -> EventBuilder {
         var builder = self
         let attendee = ICalAttendee(
             email: email,
             commonName: name,
-            role: required ? .requiredParticipant : .optionalParticipant,
-            participationStatus: .needsAction,
-            userType: .individual,
-            rsvp: true
+            role: role,
+            participationStatus: status,
+            userType: userType,
+            rsvp: rsvp,
+            delegatedFrom: delegatedFrom,
+            delegatedTo: delegatedTo,
+            sentBy: sentBy,
+            directory: directory,
+            member: member
         )
         builder.event.attendees.append(attendee)
+        return builder
+    }
+
+    /// Adds multiple attendees to the event
+    public func addAttendees(_ attendees: [ICalAttendee]) -> EventBuilder {
+        var builder = self
+        for attendee in attendees {
+            builder.event.attendees.append(attendee)
+        }
         return builder
     }
 
@@ -315,7 +355,7 @@ public struct EventBuilder: Sendable, ICalendarBuildable {
 
     /// Adds a reminder before the event
     public func reminderBefore(minutes: Int) -> EventBuilder {
-        addAlarm(action: .display, minutesBefore: minutes, description: event.summary ?? "Reminder")
+        addAlarm(.display(description: event.summary ?? "Reminder"), trigger: .minutesBefore(minutes))
     }
 
     /// Adds exception dates (dates when recurring event should not occur)
@@ -333,68 +373,94 @@ public struct EventBuilder: Sendable, ICalendarBuildable {
         return builder
     }
 
-    /// Creates an alarm with duration trigger (type-safe)
-    public func addAlarm(action: ICalAlarmAction, minutesBefore: Int, description: String? = nil, attachments: [ICalAttachment] = []) -> EventBuilder
-    {
-        var builder = self
-        let trigger = "-PT\(minutesBefore)M"
-        var alarm = ICalAlarm(action: action, trigger: trigger)
-        alarm.description = description
-        if !attachments.isEmpty {
-            alarm.attachments.append(contentsOf: attachments)
+    /// Alarm trigger timing options
+    public enum AlarmTrigger {
+        case minutesBefore(Int)
+        case duration(ICalDuration)
+        case absoluteTime(Date, timeZone: TimeZone = .current)
+        case eventStart
+
+        internal var triggerString: String {
+            switch self {
+            case .minutesBefore(let minutes):
+                return "-PT\(minutes)M"
+            case .duration(let duration):
+                return "-\(duration.description)"
+            case .absoluteTime(let date, let timeZone):
+                let dateTime = ICalDateTime(date: date, timeZone: timeZone)
+                return ICalendarFormatter.format(dateTime: dateTime)
+            case .eventStart:
+                return "PT0M"
+            }
         }
-        builder.event.addAlarm(alarm)
-        return builder
     }
 
-    /// Creates an alarm with duration trigger using ICalDuration (most type-safe)
-    public func addAlarm(
-        action: ICalAlarmAction,
-        duration: ICalDuration,
-        description: String? = nil,
-        attachments: [ICalAttachment] = []
-    ) -> EventBuilder {
+    /// Alarm action with explicit requirements
+    public enum AlarmAction {
+        case display(description: String)
+        case audio(attachment: ICalAttachment? = nil)
+        case email(description: String, summary: String, to: ICalAttendee)
+        case procedure(attachment: ICalAttachment)
+        case proximity(description: String? = nil)
+    }
+
+    /// Creates an alarm with explicit action requirements
+    public func addAlarm(_ action: AlarmAction, trigger: AlarmTrigger) -> EventBuilder {
         var builder = self
-        let trigger = "-\(duration.description)"
-        var alarm = ICalAlarm(action: action, trigger: trigger)
-        alarm.description = description
-        if !attachments.isEmpty {
-            alarm.attachments.append(contentsOf: attachments)
+
+        let alarm: ICalAlarm
+        switch action {
+        case .display(let description):
+            alarm = ICalAlarm(displayAlarm: trigger.triggerString, description: description)
+
+        case .audio(let attachment):
+            var audioAlarm = ICalAlarm(audioAlarm: trigger.triggerString)
+            if let attachment = attachment {
+                audioAlarm.attachments = [attachment]
+            }
+            alarm = audioAlarm
+
+        case .email(let description, let summary, let attendee):
+            alarm = ICalAlarm(emailAlarm: trigger.triggerString, description: description, summary: summary, attendee: attendee)
+
+        case .procedure(let attachment):
+            var procAlarm = ICalAlarm(
+                properties: [
+                    ICalProperty(name: ICalPropertyName.action, value: ICalAlarmAction.procedure.rawValue),
+                    ICalProperty(name: ICalPropertyName.trigger, value: trigger.triggerString),
+                ],
+                components: []
+            )
+            procAlarm.attachments = [attachment]
+            alarm = procAlarm
+
+        case .proximity(let description):
+            alarm = ICalAlarm(
+                properties: [
+                    ICalProperty(name: ICalPropertyName.action, value: ICalAlarmAction.proximity.rawValue),
+                    ICalProperty(name: ICalPropertyName.trigger, value: trigger.triggerString),
+                    ICalProperty(name: ICalPropertyName.description, value: description ?? "Proximity alarm"),
+                ],
+                components: []
+            )
         }
+
         builder.event.addAlarm(alarm)
         return builder
     }
 
-    /// Creates an alarm with absolute datetime trigger (e.g., trigger at exactly 9:00 AM current time zone)
-    public func addAlarm(
-        action: ICalAlarmAction,
-        at date: Date,
-        timeZone: TimeZone = .current,
-        description: String? = nil,
-        attachments: [ICalAttachment] = []
-    ) -> EventBuilder {
-        var builder = self
-        let dateTime = ICalDateTime(date: date, timeZone: timeZone)
-        let trigger = ICalendarFormatter.format(dateTime: dateTime)
-        var alarm = ICalAlarm(action: action, trigger: trigger)
-        alarm.description = description
-        if !attachments.isEmpty {
-            alarm.attachments.append(contentsOf: attachments)
+    /// Adds multiple alarms with their respective triggers
+    public func addAlarms(_ actions: [AlarmAction], triggers: [AlarmTrigger]) -> EventBuilder {
+        guard actions.count == triggers.count else {
+            fatalError("Number of actions must match number of triggers")
         }
-        builder.event.addAlarm(alarm)
-        return builder
-    }
 
-    /// Creates an alarm that triggers at the event start time (useful for 9 AM alarms on 9 AM events)
-    public func addAlarmAtEventStart(action: ICalAlarmAction = .display, description: String? = nil) -> EventBuilder {
         var builder = self
-        // Trigger at event start time (0 minutes before)
-        var alarm = ICalAlarm(action: action, trigger: "PT0M")
-        alarm.description = description ?? event.summary ?? "Event starting now"
-        builder.event.addAlarm(alarm)
+        for (action, trigger) in zip(actions, triggers) {
+            builder = builder.addAlarm(action, trigger: trigger)
+        }
         return builder
     }
-
     /// Sets created timestamp
     public func created(at date: Date) -> EventBuilder {
         var builder = self
@@ -541,7 +607,7 @@ extension EventBuilder {
 extension ICalendar {
     /// Creates a calendar with user-friendly event builders using result builder syntax
     public static func create(
-        productId: String = "iCalendar-Kit//iCalendar-Kit//EN",
+        productId: String = "github.com/thoven87/icalendar-kit//NONSGML icalendar-kit 2.0//EN",
         name: String? = nil,
         description: String? = nil,
         @EventBuilder events: () -> [ICalEvent]
@@ -567,7 +633,7 @@ extension ICalendar {
 
     /// Creates a calendar with a single event
     public static func withEvent(
-        productId: String = "iCalendar-Kit//iCalendar-Kit//EN",
+        productId: String = "github.com/thoven87/icalendar-kit//NONSGML icalendar-kit 2.0//EN",
         event: EventBuilder
     ) -> ICalendar {
         var calendar = ICalendar(productId: productId)
@@ -579,7 +645,7 @@ extension ICalendar {
     /// Creates a calendar with multiple events from an array
     public static func withEvents(
         _ events: [EventBuilder],
-        productId: String = "iCalendar-Kit//iCalendar-Kit//EN"
+        productId: String = "github.com/thoven87/icalendar-kit//NONSGML icalendar-kit 2.0//EN"
     ) -> ICalendar {
         var calendar = ICalendar(productId: productId)
         for eventBuilder in events {
