@@ -35,6 +35,7 @@ package struct ICalendarFormatter {
         return formatter
     }()
 
+    @inline(__always)
     package static func format(dateTime: ICalDateTime) -> String {
         if dateTime.isDateOnly {
             return dateOnlyFormatter.string(from: dateTime.date)
@@ -56,6 +57,7 @@ package struct ICalendarFormatter {
         }
     }
 
+    @inline(__always)
     package static func parseDateTime(_ value: String, timeZone: TimeZone = .gmt) -> ICalDateTime? {
         let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -78,6 +80,7 @@ package struct ICalendarFormatter {
 
     // MARK: - Duration Formatting
 
+    @inline(__always)
     package static func format(duration: ICalDuration) -> String {
         var result = duration.isNegative ? "-P" : "P"
 
@@ -113,6 +116,7 @@ package struct ICalendarFormatter {
         return result
     }
 
+    @inline(__always)
     package static func parseDuration(_ value: String) -> ICalDuration? {
         let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedValue.isEmpty else { return nil }

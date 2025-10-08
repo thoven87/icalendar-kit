@@ -648,7 +648,7 @@ public struct ICalendar: ICalendarComponent, Sendable {
 extension ICalendar {
     /// Creates a calendar with a single event using result builder
     public static func withEvent(
-        productId: String = "github.com/thoven87/icalendar-kit//NONSGML icalendar-kit 2.0//EN",
+        productId: String = ICalendarDefaults.productId,
         event: () -> ICalEvent
     ) -> ICalendar {
         var calendar = ICalendar(productId: productId)
@@ -659,7 +659,7 @@ extension ICalendar {
     /// Creates a calendar with multiple events
     public static func withEvents(
         _ events: [ICalEvent],
-        productId: String = "github.com/thoven87/icalendar-kit//NONSGML icalendar-kit 2.0//EN"
+        productId: String = ICalendarDefaults.productId
     ) -> ICalendar {
         var calendar = ICalendar(productId: productId)
         calendar.addEvents(events)

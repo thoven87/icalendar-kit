@@ -1551,11 +1551,13 @@ public struct ICalGeo: Equatable, Hashable, Codable, Sendable {
 // MARK: - Component Extensions for Property Access
 extension ICalendarComponent {
     /// Get a property value by name
+    @inline(__always)
     public func getPropertyValue(_ name: String) -> String? {
         properties.first { $0.name == name }?.value
     }
 
     /// Set a property value
+    @inline(__always)
     public mutating func setPropertyValue(_ name: String, value: String?) {
         properties.removeAll { $0.name == name }
         if let value = value {
@@ -1564,6 +1566,7 @@ extension ICalendarComponent {
     }
 
     /// Get a date-time property
+    @inline(__always)
     public func getDateTimeProperty(_ name: String) -> ICalDateTime? {
         guard let property = properties.first(where: { $0.name == name }) else { return nil }
 
@@ -1580,6 +1583,7 @@ extension ICalendarComponent {
     }
 
     /// Set a date-time property
+    @inline(__always)
     public mutating func setDateTimeProperty(_ name: String, value: ICalDateTime?) {
         // Remove existing property
         properties.removeAll { $0.name == name }

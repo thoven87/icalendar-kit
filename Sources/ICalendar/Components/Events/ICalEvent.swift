@@ -10,24 +10,28 @@ public struct ICalEvent: ICalendarComponent, ICalendarBuildable, Sendable {
     public var components: [any ICalendarComponent]
 
     /// Unique identifier for the event
+    @inline(__always)
     public var uid: String {
         get { getPropertyValue(ICalPropertyName.uid) ?? UUID().uuidString }
         set { setPropertyValue(ICalPropertyName.uid, value: newValue) }
     }
 
-    /// Date-time stamp (when the event was created/last modified) - required by RFC 5545
+    /// Date-time stamp (RFC 5545 3.8.7.2) - REQUIRED
+    @inline(__always)
     public var dateTimeStamp: ICalDateTime {
         get { getDateTimeProperty(ICalPropertyName.dateTimeStamp)! }
         set { setDateTimeProperty(ICalPropertyName.dateTimeStamp, value: newValue) }
     }
 
-    /// Start date and time
+    /// Start date and time (RFC 5545 3.8.2.4)
+    @inline(__always)
     public var dateTimeStart: ICalDateTime? {
         get { getDateTimeProperty(ICalPropertyName.dateTimeStart) }
         set { setDateTimeProperty(ICalPropertyName.dateTimeStart, value: newValue) }
     }
 
-    /// End date and time
+    /// End date and time (RFC 5545 3.8.2.2)
+    @inline(__always)
     public var dateTimeEnd: ICalDateTime? {
         get { getDateTimeProperty(ICalPropertyName.dateTimeEnd) }
         set { setDateTimeProperty(ICalPropertyName.dateTimeEnd, value: newValue) }
@@ -39,13 +43,15 @@ public struct ICalEvent: ICalendarComponent, ICalendarBuildable, Sendable {
         set { setDurationProperty(ICalPropertyName.duration, value: newValue) }
     }
 
-    /// Event summary/title
+    /// Event summary/title (RFC 5545 3.8.1.12)
+    @inline(__always)
     public var summary: String? {
         get { getPropertyValue(ICalPropertyName.summary) }
         set { setPropertyValue(ICalPropertyName.summary, value: newValue) }
     }
 
-    /// Event description
+    /// Event description (RFC 5545 3.8.1.5)
+    @inline(__always)
     public var description: String? {
         get { getPropertyValue(ICalPropertyName.description) }
         set { setPropertyValue(ICalPropertyName.description, value: newValue) }
@@ -102,7 +108,8 @@ public struct ICalEvent: ICalendarComponent, ICalendarBuildable, Sendable {
         return (description: property.value, formatType: formatType)
     }
 
-    /// Event location
+    /// Event location (RFC 5545 3.8.1.7)
+    @inline(__always)
     public var location: String? {
         get { getPropertyValue(ICalPropertyName.location) }
         set { setPropertyValue(ICalPropertyName.location, value: newValue) }
