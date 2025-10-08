@@ -483,7 +483,7 @@ public struct ICalendar: ICalendarComponent, Sendable {
     public mutating func applyCompliance() {
         // Ensure required calendar properties have defaults
         if productId.isEmpty {
-            productId = "github.com/thoven87/icalendar-kit//NONSGML icalendar-kit 2.0//EN"
+            productId = ICalendarDefaults.productId
         }
 
         if version.isEmpty {

@@ -713,3 +713,10 @@ public struct ICalParameterName {
     // RFC 7953 Availability parameters
     public static let busyStatus = "BUSY-STATUS"
 }
+
+// MARK: - Default Product ID
+
+/// Default product ID constant to ensure consistency across the library
+public enum ICalendarDefaults {
+    public static let productId = "github.com/thoven87/icalendar-kit//NONSGML icalendar-kit 2.0//EN"
+}

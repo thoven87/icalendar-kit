@@ -17,7 +17,7 @@ public struct ICalEvent: ICalendarComponent, ICalendarBuildable, Sendable {
 
     /// Date-time stamp (when the event was created/last modified) - required by RFC 5545
     public var dateTimeStamp: ICalDateTime {
-        get { getDateTimeProperty(ICalPropertyName.dateTimeStamp) ?? ICalDateTime(date: Date()) }
+        get { getDateTimeProperty(ICalPropertyName.dateTimeStamp)! }
         set { setDateTimeProperty(ICalPropertyName.dateTimeStamp, value: newValue) }
     }
 

@@ -452,7 +452,7 @@ public struct EventBuilder: Sendable, ICalendarBuildable {
     /// Adds multiple alarms with their respective triggers
     public func addAlarms(_ actions: [AlarmAction], triggers: [AlarmTrigger]) -> EventBuilder {
         guard actions.count == triggers.count else {
-            fatalError("Number of actions must match number of triggers")
+            fatalError("Number of actions (\(actions.count)) must match number of triggers (\(triggers.count))")
         }
 
         var builder = self
@@ -607,7 +607,7 @@ extension EventBuilder {
 extension ICalendar {
     /// Creates a calendar with user-friendly event builders using result builder syntax
     public static func create(
-        productId: String = "github.com/thoven87/icalendar-kit//NONSGML icalendar-kit 2.0//EN",
+        productId: String = ICalendarDefaults.productId,
         name: String? = nil,
         description: String? = nil,
         @EventBuilder events: () -> [ICalEvent]
@@ -633,7 +633,7 @@ extension ICalendar {
 
     /// Creates a calendar with a single event
     public static func withEvent(
-        productId: String = "github.com/thoven87/icalendar-kit//NONSGML icalendar-kit 2.0//EN",
+        productId: String = ICalendarDefaults.productId,
         event: EventBuilder
     ) -> ICalendar {
         var calendar = ICalendar(productId: productId)
@@ -645,7 +645,7 @@ extension ICalendar {
     /// Creates a calendar with multiple events from an array
     public static func withEvents(
         _ events: [EventBuilder],
-        productId: String = "github.com/thoven87/icalendar-kit//NONSGML icalendar-kit 2.0//EN"
+        productId: String = ICalendarDefaults.productId
     ) -> ICalendar {
         var calendar = ICalendar(productId: productId)
         for eventBuilder in events {
