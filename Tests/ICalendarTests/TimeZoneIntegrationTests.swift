@@ -806,7 +806,7 @@ struct TimeZoneIntegrationTests {
     @Test("X-ALT-DESC support for alternative HTML descriptions")
     func testXAltDescSupport() async throws {
         // Create event with both regular and HTML description using builder pattern
-        let htmlDescription = "<html><body><h1>Meeting Details</h1><p>This is a <strong>important</strong> meeting.</p></body></html>"
+        let htmlDescription = "<html><body><h1>Meeting Details</h1><p>This is an <strong>important</strong> meeting.</p></body></html>"
         let plainDescription = "Meeting Details - This is an important meeting."
 
         let calendar = ICalendar.create(productId: "-//Test X-ALT-DESC//EN") {
