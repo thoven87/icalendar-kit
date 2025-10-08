@@ -290,9 +290,8 @@ public struct ICalendarSerializer: Sendable {
         // Required properties in Outlook-preferred order
         lines.append("UID:\(event.uid)")
 
-        if let dtstamp = event.dateTimeStamp {
-            lines.append("DTSTAMP:\(ICalendarFormatter.format(dateTime: dtstamp))")
-        }
+        // DTSTAMP is now required and non-optional
+        lines.append("DTSTAMP:\(ICalendarFormatter.format(dateTime: event.dateTimeStamp))")
 
         if let dtstart = event.dateTimeStart {
             lines.append("DTSTART:\(ICalendarFormatter.format(dateTime: dtstart))")

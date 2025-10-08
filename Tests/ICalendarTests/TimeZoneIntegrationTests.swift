@@ -802,6 +802,245 @@ struct TimeZoneIntegrationTests {
         #expect(serialized.contains("BYMONTH=3"), "Spring transition should be in March")
         #expect(serialized.contains("BYMONTH=11"), "Fall transition should be in November")
     }
+
+    @Test("X-ALT-DESC support for alternative HTML descriptions")
+    func testXAltDescSupport() async throws {
+        // Create event with both regular and HTML description using builder pattern
+        let htmlDescription = "<html><body><h1>Meeting Details</h1><p>This is an <strong>important</strong> meeting.</p></body></html>"
+        let plainDescription = "Meeting Details - This is an important meeting."
+
+        let calendar = ICalendar.create(productId: "-//Test X-ALT-DESC//EN") {
+            EventBuilder(summary: "Test Event with HTML Description", uid: "test-xaltdesc-001")
+                .description(plainDescription)
+                .htmlDescription(htmlDescription)
+                .createdNow()
+        }
+        let serialized = try ICalendarSerializer().serialize(calendar)
+        let event = calendar.events.first!
+
+        // Verify both descriptions are present
+        #expect(serialized.contains("DESCRIPTION:\(plainDescription)"), "Should contain plain text description")
+
+        // Check for X-ALT-DESC with FMTTYPE parameter (handle line wrapping)
+        #expect(serialized.contains("X-ALT-DESC;FMTTYPE=text/html:"), "Should contain X-ALT-DESC with FMTTYPE parameter")
+        #expect(serialized.contains("<html><body><h1>Meeting Details</h1>"), "Should contain HTML content")
+        #expect(serialized.contains("<strong>important</strong>"), "Should contain HTML formatting")
+
+        // Test retrieval
+        #expect(event.htmlDescription == htmlDescription, "Should retrieve correct HTML description")
+
+        if let altDesc = event.getAlternativeDescriptionWithFormat() {
+            #expect(altDesc.description == htmlDescription, "Should retrieve correct HTML description with format")
+            #expect(altDesc.formatType == "text/html", "Should retrieve correct format type")
+        } else {
+            Issue.record("Failed to retrieve alternative description with format")
+        }
+
+        // Verify basic serialization structure
+        #expect(serialized.contains("BEGIN:VCALENDAR"), "Should contain calendar structure")
+        #expect(serialized.contains("BEGIN:VEVENT"), "Should contain event structure")
+        #expect(serialized.contains("END:VEVENT"), "Should end event structure")
+        #expect(serialized.contains("END:VCALENDAR"), "Should end calendar structure")
+    }
+
+    @Test("Enhanced attendee builder functionality")
+    func testEnhancedAttendeeBuilder() async throws {
+        // Test the comprehensive attendee builder methods
+        let calendar = ICalendar.create(productId: "-//Enhanced Attendee Test//EN") {
+            EventBuilder(summary: "Project Kickoff Meeting", uid: "meeting-attendees-001")
+                .starts(at: Date().addingTimeInterval(3600))
+                .duration(7200)  // 2 hours
+                .organizer(email: "manager@company.com", name: "Project Manager")
+
+                // Basic attendees
+                .addAttendee(email: "john@company.com", name: "John Smith", role: .requiredParticipant)
+                .addAttendee(email: "jane@company.com", name: "Jane Doe", role: .optionalParticipant)
+
+                // Resources and rooms
+                .addAttendee(email: "conf-room-a@company.com", name: "Conference Room A", role: .nonParticipant, userType: .room, rsvp: false)
+                .addAttendee(email: "projector@company.com", name: "HD Projector", role: .nonParticipant, userType: .resource, rsvp: false)
+
+                // Group attendees
+                .addAttendee(email: "dev-team@company.com", name: "Development Team", role: .requiredParticipant, userType: .group)
+
+                // Attendees with specific status
+                .addAttendee(
+                    email: "alice@company.com",
+                    name: "Alice Johnson",
+                    role: .requiredParticipant,
+                    status: .accepted
+                )
+                .addAttendee(
+                    email: "bob@company.com",
+                    name: "Bob Wilson",
+                    role: .optionalParticipant,
+                    status: .tentative
+                )
+
+                // Delegated attendee
+                .addAttendee(
+                    email: "charlie@company.com",
+                    name: "Charlie Brown",
+                    role: .requiredParticipant,
+                    status: .delegated,
+                    delegatedFrom: "david@company.com"
+                )
+
+                // Advanced attendee with all details
+                .addAttendee(
+                    email: "expert@external.com",
+                    name: "External Expert",
+                    role: .requiredParticipant,
+                    status: .needsAction,
+                    userType: .individual,
+                    rsvp: true,
+                    sentBy: "assistant@external.com",
+                    directory: "ldap://external.com/cn=users,dc=external,dc=com"
+                )
+
+                .createdNow()
+        }
+
+        let serialized = try ICalendarSerializer().serialize(calendar)
+        let event = calendar.events.first!
+
+        // Verify we have all attendees
+        #expect(event.attendees.count == 9, "Should have 9 attendees")
+
+        // Verify organizer
+        #expect(event.organizer?.email == "manager@company.com", "Should have correct organizer")
+        #expect(event.organizer?.role == .chair, "Organizer should have chair role")
+
+        // Test different attendee types are properly serialized
+        #expect(
+            serialized.contains("CUTYPE=ROOM") && serialized.contains("conf-room-a@company.com"),
+            "Should contain room attendee"
+        )
+        #expect(
+            serialized.contains("CUTYPE=RESOURCE") && serialized.contains("projector@company.com"),
+            "Should contain resource attendee"
+        )
+        #expect(
+            serialized.contains("CUTYPE=GROUP") && serialized.contains("dev-team@company.com"),
+            "Should contain group attendee"
+        )
+
+        // Verify specific attendee properties
+        let acceptedAttendee = event.attendees.first { $0.email == "alice@company.com" }
+        #expect(acceptedAttendee?.participationStatus == .accepted, "Should have accepted status")
+
+        let tentativeAttendee = event.attendees.first { $0.email == "bob@company.com" }
+        #expect(tentativeAttendee?.participationStatus == .tentative, "Should have tentative status")
+        #expect(tentativeAttendee?.role == .optionalParticipant, "Should have optional participant role")
+
+        let delegatedAttendee = event.attendees.first { $0.email == "charlie@company.com" }
+        #expect(delegatedAttendee?.participationStatus == .delegated, "Should have delegated status")
+        #expect(delegatedAttendee?.delegatedFrom == "david@company.com", "Should have correct delegation source")
+
+        let externalExpert = event.attendees.first { $0.email == "expert@external.com" }
+        #expect(externalExpert?.sentBy == "assistant@external.com", "Should have sent-by property")
+        #expect(externalExpert?.directory == "ldap://external.com/cn=users,dc=external,dc=com", "Should have directory property")
+    }
+
+    @Test("addAttendee methods follow same pattern as addAlarm")
+    func testAddAttendeePattern() async throws {
+        let calendar = ICalendar.create(productId: "-//Consistent API Test//EN") {
+            EventBuilder(summary: "API Consistency Demo", uid: "api-consistency-001")
+                .starts(at: Date().addingTimeInterval(3600))
+                .duration(7200)  // 2 hours
+                .description("Meeting to demonstrate API consistency")
+                .organizer(email: "organizer@company.com", name: "Event Organizer")
+
+                // Using addAttendee methods
+                .addAttendee(email: "john@company.com", name: "John Smith", role: .requiredParticipant)
+                .addAttendee(email: "jane@company.com", name: "Jane Doe", role: .optionalParticipant)
+                .addAttendee(
+                    email: "expert@company.com",
+                    name: "Technical Expert",
+                    role: .requiredParticipant,
+                    status: .accepted,
+                    userType: .individual,
+                    rsvp: true
+                )
+
+                // Bulk add attendees
+                .addAttendees([
+                    ICalAttendee(email: "alice@company.com", commonName: "Alice Johnson"),
+                    ICalAttendee(email: "bob@company.com", commonName: "Bob Wilson"),
+                    ICalAttendee(email: "charlie@company.com", commonName: "Charlie Brown"),
+                ])
+
+                .createdNow()
+        }
+
+        let serialized = try ICalendarSerializer().serialize(calendar)
+        let event = calendar.events.first!
+
+        // Verify attendees were added correctly
+        #expect(event.attendees.count == 6, "Should have 6 attendees (3 individual + 3 bulk)")
+
+        // Verify required attendee
+        let johnAttendee = event.attendees.first { $0.email == "john@company.com" }
+        #expect(johnAttendee?.role == .requiredParticipant, "John should be required participant")
+        #expect(johnAttendee?.commonName == "John Smith", "Should have correct name")
+
+        // Verify optional attendee
+        let janeAttendee = event.attendees.first { $0.email == "jane@company.com" }
+        #expect(janeAttendee?.role == .optionalParticipant, "Jane should be optional participant")
+
+        // Verify detailed attendee
+        let expertAttendee = event.attendees.first { $0.email == "expert@company.com" }
+        #expect(expertAttendee?.participationStatus == .accepted, "Expert should have accepted status")
+
+        // Verify bulk attendees were added
+        #expect(serialized.contains("alice@company.com"), "Should contain Alice from bulk add")
+        #expect(serialized.contains("bob@company.com"), "Should contain Bob from bulk add")
+        #expect(serialized.contains("charlie@company.com"), "Should contain Charlie from bulk add")
+        // Verify API consistency in generated output (accounting for line folding)
+        #expect(
+            serialized.contains("CN=\"John Smith\"") && serialized.contains("PARTICIPANT") && serialized.contains("john@company.com"),
+            "Should generate proper ATTENDEE property"
+        )
+    }
+
+    @Test("TimeZoneRegistry generates TZURL automatically for RFC 7808 compliance")
+    func testAutomaticTZURLGeneration() async throws {
+        // Test that TimeZoneRegistry automatically generates TZURL for timezone components
+        guard let nyTimeZone = TimeZoneRegistry.shared.getTimeZone(for: "America/New_York") else {
+            return  // Skip test if timezone not available
+        }
+
+        // Verify TZURL is automatically generated
+        #expect(nyTimeZone.timeZoneUrl != nil, "TimeZoneRegistry should automatically generate TZURL")
+        #expect(
+            nyTimeZone.timeZoneUrl == "http://tzurl.org/zoneinfo-outlook/America/New_York",
+            "TZURL should follow standard format"
+        )
+
+        // Test another timezone
+        guard let londonTimeZone = TimeZoneRegistry.shared.getTimeZone(for: "Europe/London") else {
+            return  // Skip test if timezone not available
+        }
+
+        #expect(
+            londonTimeZone.timeZoneUrl == "http://tzurl.org/zoneinfo-outlook/Europe/London",
+            "TZURL should be generated for all timezones"
+        )
+
+        // Test calendar with timezone includes TZURL in serialization
+        var calendar = ICalendar(productId: "-//TZURL Test//EN")
+        calendar.addTimeZone(nyTimeZone)
+
+        let serialized = try ICalendarSerializer().serialize(calendar)
+        #expect(
+            serialized.contains("TZURL:http://tzurl.org/zoneinfo-outlook/America/New_York"),
+            "Serialized calendar should include TZURL"
+        )
+        #expect(
+            serialized.contains("TZID:America/New_York"),
+            "Serialized calendar should include TZID"
+        )
+    }
 }
 
 // MARK: - String Extension for Regex Matching

@@ -16,14 +16,16 @@ let calendar = ICalendar.calendar {
 ## Features
 
 - **RFC Compliant**: Full support for multiple iCalendar specifications (see [RFC Compliance](#rfc-compliance) below)
+- **Maximum Compatibility**: RFC 7986 standard properties with automatic legacy X-WR fallbacks
 - **Swift 6 Ready**: Complete Sendable conformance and structured concurrency support
 - **Type Safe**: Uses structs instead of classes with comprehensive type operations
+- **Unified Alarm API**: Type-safe alarm creation with RFC 5545 compliance and action-specific requirements
 - **Comprehensive**: Support for events, todos, journals, alarms, time zones, and recurrence rules
 - **Enhanced Properties**: RFC 7986 extensions including COLOR, IMAGE, CONFERENCE, GEO, and ATTACH properties
 - **Binary Attachments**: Base64-encoded binary data support for ATTACH and IMAGE properties
-- **Timezone Integration**: Foundation TimeZone integration with TZURL generation (RFC 7808)
+- **Timezone Integration**: Foundation TimeZone integration with VTIMEZONE generation (RFC 7808)
 - **Builder Pattern**: Fluent API for easy calendar and event creation
-- **Extensible**: Support for custom properties and X-WR extensions
+- **Cross-Platform**: Works in modern apps (Google Calendar) and legacy systems (older Apple Calendar)
 
 ## Requirements
 
@@ -56,27 +58,31 @@ Or add it through Xcode:
 ```swift
 import ICalendar
 
-// Create a simple event using EventBuilder
-let startTime = Date()
-let timeZone = TimeZone.current
+// Create calendar with RFC 7986 properties (automatic legacy compatibility)
+var calendar = ICalendar(productId: "-//My App//Team Calendar//EN")
+calendar.name = "My Team Calendar"  // Sets both NAME and X-WR-CALNAME
+calendar.calendarDescription = "Team events and meetings"  // Sets both DESCRIPTION and X-WR-CALDESC
+calendar.refreshInterval = ICalDuration(hours: 6)  // Sets both REFRESH-INTERVAL and X-PUBLISHED-TTL
+
+// Create event with unified alarm API
+let organizer = ICalAttendee(email: "manager@company.com", commonName: "Manager")
 
 let teamMeeting = EventBuilder(summary: "Team Meeting")
-    .starts(at: startTime, timeZone: timeZone)
+    .starts(at: Date(), timeZone: .current)
     .duration(3600) // 1 hour in seconds
     .location("Conference Room A")
     .description("Weekly team sync meeting")
     .categories("Work", "Meeting")
     .confirmed()
-    .addAlarm(action: .display, minutesBefore: 15, description: "Meeting starts in 15 minutes")
+    // Unified alarm API with type-safe, RFC 5545 compliant alarms
+    .addAlarm(.display(description: "Meeting starts in 15 minutes"), trigger: .minutesBefore(15))
+    .addAlarm(.email(description: "Meeting reminder", summary: "Team Meeting", to: organizer), trigger: .minutesBefore(60))
+    .addAlarm(.audio(), trigger: .minutesBefore(5))  // Sound notification
     .buildEvent()
 
-// Create calendar and add the event
-var calendar = ICalendar(productId: "-//My App//Team Calendar//EN")
-calendar.name = "My Team Calendar"
-calendar.calendarDescription = "Team events and meetings"
 calendar.addEvent(teamMeeting)
 
-// Serialize to iCalendar format
+// Serialize to iCalendar format (includes both RFC 7986 and legacy properties)
 let icsString = try ICalendarSerializer().serialize(calendar)
 print(icsString)
 ```
@@ -104,14 +110,15 @@ let calendar = try ICalendarKit.parseCalendar(from: icalContent)
 print("Found \(calendar.events.count) events")
 ```
 
-### Using EventBuilder for Complex Events
+### Using EventBuilder with Unified Alarm API
 
 ```swift
-// Create events using EventBuilder
+// Create events using EventBuilder with type-safe alarms
 let startTime = Date()
 let timeZone = TimeZone(identifier: "America/New_York")!
+let manager = ICalAttendee(email: "manager@company.com", commonName: "Project Manager")
 
-// Simple meeting
+// Meeting with progressive alarms
 let meeting = EventBuilder(summary: "Daily Standup")
     .starts(at: startTime, timeZone: timeZone)
     .duration(1800) // 30 minutes in seconds
@@ -119,25 +126,42 @@ let meeting = EventBuilder(summary: "Daily Standup")
     .description("Daily team standup meeting")
     .categories("Work", "Meeting")
     .confirmed()
-    .addAlarm(action: .display, minutesBefore: 15, description: "Meeting in 15 minutes")
+    // Multiple alarms with different actions
+    .addAlarms([
+        .display(description: "Standup in 15 minutes"),
+        .display(description: "Standup in 5 minutes"),
+        .audio()  // Sound notification
+    ], triggers: [
+        .minutesBefore(15),
+        .minutesBefore(5),
+        .minutesBefore(2)
+    ])
     .buildEvent()
 
-// Project planning session
+// Project planning with email notification
 let projectPlanning = EventBuilder(summary: "Project Planning")
     .starts(at: Calendar.current.date(byAdding: .day, value: 1, to: Date())!, timeZone: timeZone)
     .duration(7200) // 2 hours in seconds
     .location("Conference Room B")
     .description("Weekly project planning session")
     .organizer(email: "manager@company.com", name: "Project Manager")
-    .attendee(email: "alice@company.com", name: "Alice", required: true)
-    .attendee(email: "bob@company.com", name: "Bob", required: false)
+    .addAttendee(email: "alice@company.com", name: "Alice", role: .requiredParticipant)
+    .addAttendee(email: "bob@company.com", name: "Bob", role: .optionalParticipant)
     .highPriority()
     .confirmed()
+    // Email alarm with all required properties
+    .addAlarm(.email(
+        description: "Project planning session tomorrow - please prepare your reports",
+        summary: "Project Planning Reminder",
+        to: manager
+    ), trigger: .minutesBefore(1440))  // 24 hours before
     .buildEvent()
 
-// Create calendar with the events
+// Create calendar with maximum compatibility
 var calendar = ICalendar(productId: "-//My Company//Project Calendar//EN")
-calendar.name = "Project Calendar"
+calendar.name = "Project Calendar"  // Automatically sets NAME + X-WR-CALNAME
+calendar.calendarDescription = "Weekly project events"  // Sets DESCRIPTION + X-WR-CALDESC
+calendar.color = "#2196F3"  // Material Blue
 calendar.addEvent(meeting)
 calendar.addEvent(projectPlanning)
 ```
@@ -395,7 +419,79 @@ let todoCalendar = ICalendar.calendar(productId: "-//Task Manager//EN") {
     )
 }
 
-### Working with Alarms
+### Working with Alarms - Unified Type-Safe API
+
+The unified alarm API provides compile-time safety and RFC 5545 compliance:
+
+```swift
+let attendee = ICalAttendee(email: "user@company.com", commonName: "User")
+// Create audio attachment from URL
+let soundFile = ICalAttachment(uri: "https://example.com/notification.mp3", mediaType: "audio/mp3")
+
+let event = EventBuilder(summary: "Important Meeting")
+    .starts(at: Date(), timeZone: .current)
+    .duration(3600)
+    
+    // DISPLAY alarms - require description
+    .addAlarm(.display(description: "Meeting in 30 minutes"), trigger: .minutesBefore(30))
+    .addAlarm(.display(description: "Meeting starting now"), trigger: .eventStart)
+    
+    // EMAIL alarms - require description, summary, and attendee
+    .addAlarm(.email(
+        description: "Don't forget about the important meeting",
+        summary: "Meeting Reminder", 
+        to: attendee
+    ), trigger: .minutesBefore(60))
+    
+    // AUDIO alarms - optional attachment (URL or binary data)
+    .addAlarm(.audio(attachment: soundFile), trigger: .minutesBefore(10))  // Custom sound from URL
+    .addAlarm(.audio(), trigger: .minutesBefore(2))  // System default sound
+
+    // Multiple alarms at once
+    .addAlarms([
+        .display(description: "Final warning - 5 minutes"),
+        .display(description: "Meeting starting - 1 minute"),
+        .audio()
+    ], triggers: [
+        .minutesBefore(5),
+        .minutesBefore(1),
+        .eventStart
+    ])
+
+    // Different trigger types
+    .addAlarm(.display(description: "Custom timing"),
+              trigger: .duration(ICalDuration(hours: 1, minutes: 30)))
+    .addAlarm(.display(description: "Absolute time reminder"),
+              trigger: .absoluteTime(specificDate, timeZone: .current))
+
+    .buildEvent()
+```
+
+### RFC 7986 Calendar Properties with Legacy Compatibility
+
+iCalendar-Kit automatically provides maximum compatibility by setting both modern RFC 7986 properties and their legacy X-WR equivalents:
+
+```swift
+var calendar = ICalendar(productId: "-//My App//Modern Calendar//EN")
+
+// Setting RFC 7986 properties automatically includes legacy equivalents
+calendar.name = "My Calendar"                    // Sets NAME + X-WR-CALNAME
+calendar.calendarDescription = "Description"     // Sets DESCRIPTION + X-WR-CALDESC
+calendar.refreshInterval = ICalDuration(hours: 6) // Sets REFRESH-INTERVAL + X-PUBLISHED-TTL
+
+// Additional RFC 7986 properties
+calendar.color = "#FF5722"
+calendar.image = "https://example.com/calendar.png"
+calendar.source = "https://api.example.com/calendar.ics"
+
+// Generated ICS includes both for maximum compatibility:
+// NAME:My Calendar
+// X-WR-CALNAME:My Calendar
+// DESCRIPTION:Description
+// X-WR-CALDESC:Description
+// REFRESH-INTERVAL:PT6H
+// X-PUBLISHED-TTL:PT6H
+```
 
 ```swift
 // Create alarms using direct functions in v2.0
@@ -422,6 +518,37 @@ let calendarWithAlarms = ICalendar.calendar(productId: "-//Alarm Example//EN") {
         ))
 }
 ```
+
+## Migration Guide
+
+### From Version 1.x to 2.0
+
+```swift
+// Old API (v1.x) - still works but deprecated
+.addAlarm(action: .display, minutesBefore: 15, description: "Meeting soon")
+
+// New Unified API (v2.0+) - recommended
+.addAlarm(.display(description: "Meeting soon"), trigger: .minutesBefore(15))
+```
+
+### From Direct Property Setting
+
+```swift
+// Old approach - only sets one property
+calendar.displayName = "My Calendar"        // Only X-WR-CALNAME
+calendar.xwrDescription = "Description"     // Only X-WR-CALDESC
+
+// New approach - maximum compatibility
+calendar.name = "My Calendar"               // Sets NAME + X-WR-CALNAME
+calendar.calendarDescription = "Description" // Sets DESCRIPTION + X-WR-CALDESC
+```
+
+### Best Practices
+
+1. **Use RFC 7986 properties** (name, calendarDescription, refreshInterval) for new code
+2. **Leverage the unified alarm API** for type safety and RFC compliance
+3. **Let the library handle compatibility** - don't manually set both properties
+4. **Test across multiple calendar applications** to ensure compatibility
 
 ## Configuration
 
@@ -508,10 +635,6 @@ await withTaskGroup(of: String.self) { group in
         print("Processed calendar: \(serialized.prefix(100))...")
     }
 }
-            // Process serialized calendar...
-        }
-    }
-}
 ```
 
 ## Utility Functions
@@ -559,6 +682,229 @@ let firstMonday = RecurrencePatterns.monthly(
     weekday: .monday,
     count: 12
 )
+```
+
+## RFC Compliance
+
+iCalendar-Kit provides comprehensive support for multiple RFC specifications with automatic compatibility handling:
+
+### Core Specifications
+
+| RFC | Description | Support Level | Key Features |
+|-----|-------------|---------------|--------------|
+| **RFC 5545** | iCalendar Core | ✅ **Complete** | Events, TODOs, Journals, Alarms, Recurrence |
+| **RFC 7986** | Calendar Extensions | ✅ **Complete** | NAME, DESCRIPTION, COLOR, IMAGE properties |
+| **RFC 6868** | Parameter Encoding | ✅ **Complete** | Special character encoding in parameters |
+| **RFC 7808** | Time Zone Data | ✅ **Complete** | VTIMEZONE generation with automatic TZURL |
+
+### RFC 7986 → Legacy Compatibility
+
+Automatic dual-property support for maximum compatibility:
+
+```swift
+// Setting one property creates both RFC 7986 and legacy versions
+calendar.name = "My Calendar"
+// Creates: NAME:My Calendar + X-WR-CALNAME:My Calendar
+
+calendar.calendarDescription = "Description"
+// Creates: DESCRIPTION:Description + X-WR-CALDESC:Description
+
+calendar.refreshInterval = ICalDuration(hours: 6)
+// Creates: REFRESH-INTERVAL:PT6H + X-PUBLISHED-TTL:PT6H
+```
+
+### VALARM RFC 5545 Compliance
+
+The unified alarm API enforces all RFC 5545 requirements at compile-time:
+
+| Alarm Type | Required Properties | Enforced by API |
+|------------|-------------------|-----------------|
+| **DISPLAY** | DESCRIPTION | ✅ `.display(description:)` |
+| **EMAIL** | DESCRIPTION, SUMMARY, ATTENDEE | ✅ `.email(description:summary:to:)` |
+| **AUDIO** | None (ATTACH optional) | ✅ `.audio(attachment:)` |
+| **PROCEDURE** | ATTACH | ✅ `.procedure(attachment:)` |
+
+### TZURL - Automatic Timezone Updates (RFC 7808)
+
+iCalendar-Kit automatically generates TZURL properties for better timezone handling:
+
+```swift
+// TimeZoneRegistry automatically adds TZURL to VTIMEZONE components
+if let nyTimeZone = TimeZoneRegistry.shared.getTimeZone(for: "America/New_York") {
+    calendar.addTimeZone(nyTimeZone)
+    // Generated VTIMEZONE will include:
+    // TZURL:http://tzurl.org/zoneinfo-outlook/America/New_York
+}
+```
+
+**Benefits of TZURL:**
+- **Automatic Updates**: Calendar applications can fetch latest timezone rules
+- **Government Changes**: Handles daylight saving rule changes automatically  
+- **Cross-Platform Consistency**: All clients use the same timezone definitions
+- **Future-Proof**: Events remain accurate even after timezone rule updates
+
+**Generated TZURL Format:**
+- `TZURL:http://tzurl.org/zoneinfo-outlook/America/Los_Angeles`
+- `TZURL:http://tzurl.org/zoneinfo-outlook/Europe/London`
+- `TZURL:http://tzurl.org/zoneinfo-outlook/Asia/Tokyo`
+
+### Calendar Application Compatibility
+
+| Application | RFC 7986 Support | Legacy X-WR Support | TZURL Support | iCalendar-Kit Compatibility |
+|-------------|-----------------|-------------------|---------------|---------------------------|
+| **Google Calendar** | ✅ Yes | ✅ Yes | ✅ Yes | ✅ **Perfect** |
+| **Apple Calendar (2020+)** | ✅ Yes | ✅ Yes | ✅ Yes | ✅ **Perfect** |
+| **Apple Calendar (Legacy)** | ❌ No | ✅ Yes | 🔶 Partial | ✅ **Perfect** (via X-WR) |
+| **Outlook** | 🔶 Partial | ✅ Yes | ✅ Yes | ✅ **Perfect** |
+| **CalDAV Servers** | 🔶 Varies | ✅ Yes | ✅ Yes | ✅ **Perfect** |
+
+### Validation and Compliance Testing
+
+All generated calendars are automatically validated for RFC compliance:
+
+```swift
+// Automatic validation during serialization
+let icsContent = try ICalendarSerializer().serialize(calendar)
+// ✅ Validates all required properties are present
+// ✅ Ensures proper component structure
+// ✅ Verifies alarm requirements are met
+// ✅ Checks recurrence rule validity
+```
+
+## Complete Example - Production-Ready Calendar
+
+Here's a comprehensive example showcasing RFC 7986 compatibility, unified alarms, and enterprise features:
+
+```swift
+import ICalendar
+
+/// Production-ready calendar with maximum compatibility
+func createEnterpriseCalendar() throws -> String {
+    // Create calendar with RFC 7986 properties (automatic legacy compatibility)
+    var calendar = ICalendar(productId: "-//Enterprise Corp//Business Calendar v2.0//EN")
+
+    // RFC 7986 properties (automatically includes X-WR equivalents)
+    calendar.name = "Enterprise Business Calendar"
+    calendar.calendarDescription = "Official company calendar with meetings, deadlines, and events"
+    calendar.refreshInterval = ICalDuration(hours: 6)  // Refresh every 6 hours
+    calendar.color = "#1976D2"  // Corporate blue
+    calendar.source = "https://api.enterprise.com/calendar.ics"
+    calendar.image = "https://enterprise.com/calendar-icon.png"
+
+    // Create attendees
+    let ceo = ICalAttendee(email: "ceo@enterprise.com", commonName: "CEO")
+    let manager = ICalAttendee(email: "manager@enterprise.com", commonName: "Project Manager")
+    let team = ICalAttendee(email: "team@enterprise.com", commonName: "Development Team")
+
+    // 1. Executive Meeting with Email Notifications
+    let executiveMeeting = EventBuilder(summary: "📊 Quarterly Business Review")
+        .starts(at: Date().addingTimeInterval(86400), timeZone: .current)  // Tomorrow
+        .duration(7200)  // 2 hours
+        .location("Executive Boardroom")
+        .description("Comprehensive Q4 performance review with stakeholder presentations")
+        .organizer(email: "ceo@enterprise.com", name: "CEO")
+        .addAttendee(email: "manager@enterprise.com", name: "Project Manager", role: .requiredParticipant)
+        .addAttendee(email: "cfo@enterprise.com", name: "CFO", role: .requiredParticipant)
+        .addAttendee(email: "team@enterprise.com", name: "Development Team", role: .optionalParticipant, userType: .group)
+        .highPriority()
+        .confirmed()
+        // Progressive alarm strategy with type-safe API
+        .addAlarm(.email(
+            description: "Quarterly review tomorrow - please prepare your reports and presentations",
+            summary: "Business Review Preparation",
+            to: ceo
+        ), trigger: .minutesBefore(1440))  // 24 hours
+        .addAlarm(.display(description: "Business review in 2 hours - final preparations"), trigger: .minutesBefore(120))
+        .addAlarm(.display(description: "Business review in 30 minutes"), trigger: .minutesBefore(30))
+        .addAlarm(.audio(), trigger: .minutesBefore(10))  // Sound notification
+        .buildEvent()
+
+    // 2. Recurring Team Standup
+    let dailyStandup = EventBuilder(summary: "🚀 Daily Team Standup")
+        .starts(at: nextMondayAt9AM(), timeZone: .current)
+        .duration(900)  // 15 minutes
+        .location("Conference Room A / Virtual")
+        .description("Daily team coordination and blocker discussion")
+        .organizer(email: "manager@enterprise.com", name: "Project Manager")
+        .addAttendee(email: "dev1@enterprise.com", name: "Developer 1", role: .requiredParticipant)
+        .addAttendee(email: "dev2@enterprise.com", name: "Developer 2", role: .requiredParticipant)
+        .addAttendee(email: "designer@enterprise.com", name: "UX Designer", role: .optionalParticipant)
+        .repeatsWeekly(every: 1, on: [.monday, .tuesday, .wednesday, .thursday, .friday])
+        .confirmed()
+        // Multiple alarms for recurring events
+        .addAlarms([
+            .display(description: "Standup in 10 minutes"),
+            .display(description: "Standup starting now"),
+            .audio()
+        ], triggers: [
+            .minutesBefore(10),
+            .minutesBefore(1),
+            .eventStart
+        ])
+        .buildEvent()
+
+    // 3. Project Deadline with Escalating Notifications
+    let projectDeadline = EventBuilder(summary: "⚠️ Project Alpha Deadline")
+        .starts(at: Calendar.current.date(byAdding: .weekOfYear, value: 2, to: Date())!, timeZone: .current)
+        .duration(0)  // All-day deadline
+        .description("Final deadline for Project Alpha deliverables")
+        .organizer(email: "manager@enterprise.com", name: "Project Manager")
+        .addAttendee(email: "team@enterprise.com", name: "Development Team", role: .requiredParticipant, userType: .group)
+        .highPriority()
+        .confirmed()
+        // Escalating deadline reminders
+        .addAlarm(.email(
+            description: "Project Alpha deadline in 1 week - please ensure all deliverables are on track",
+            summary: "Project Deadline - 1 Week Warning",
+            to: manager
+        ), trigger: .minutesBefore(10080))  // 1 week
+        .addAlarm(.display(description: "Project Alpha deadline in 3 days"), trigger: .minutesBefore(4320))  // 3 days
+        .addAlarm(.display(description: "Project Alpha deadline tomorrow"), trigger: .minutesBefore(1440))  // 1 day
+        .addAlarm(.display(description: "Project Alpha deadline in 2 hours"), trigger: .minutesBefore(120))  // 2 hours
+        .buildEvent()
+
+    // Add timezone components with automatic TZURL generation (RFC 7808)
+    if let estTimeZone = TimeZoneRegistry.shared.getTimeZone(for: "America/New_York") {
+        calendar.addTimeZone(estTimeZone)
+        // Automatically includes: TZURL:http://tzurl.org/zoneinfo-outlook/America/New_York
+    }
+    
+    if let utcTimeZone = TimeZoneRegistry.shared.getTimeZone(for: "UTC") {
+        calendar.addTimeZone(utcTimeZone)
+        // Automatically includes: TZURL:http://tzurl.org/zoneinfo-outlook/UTC
+    }
+    
+    // Add events to calendar
+    calendar.addEvent(executiveMeeting)
+    calendar.addEvent(dailyStandup)
+    calendar.addEvent(projectDeadline)
+    
+    // Serialize with validation
+    return try ICalendarSerializer().serialize(calendar)
+}
+
+// Helper function
+private func nextMondayAt9AM() -> Date {
+    let calendar = Calendar.current
+    let now = Date()
+    let nextMonday = calendar.nextDate(after: now, matching: DateComponents(weekday: 2), matchingPolicy: .nextTime)!
+    return calendar.date(bySettingHour: 9, minute: 0, second: 0, of: nextMonday)!
+}
+
+// Usage
+do {
+    let enterpriseCalendar = try createEnterpriseCalendar()
+    print("Generated enterprise calendar with maximum compatibility:")
+    print("- RFC 7986 + X-WR legacy properties")
+    print("- Type-safe alarms with RFC 5545 compliance")
+    print("- Automatic TZURL generation for timezone updates")
+    print("- Works in all major calendar applications")
+
+    // Save to file
+    try enterpriseCalendar.write(to: URL(fileURLWithPath: "enterprise_calendar.ics"), atomically: true, encoding: .utf8)
+} catch {
+    print("Error creating calendar: \(error)")
+}
 ```
 
 ## Error Handling
@@ -728,7 +1074,7 @@ extendedCalendar.properties.append(contentsOf: [
     ICalProperty(name: "COLOR", value: "corporate-blue"),
     ICalProperty(name: "REFRESH-INTERVAL", value: "P1D"),
     ICalProperty(name: "SOURCE", value: "https://api.company.com/calendar.ics"),
-    
+
     // X-WR extensions
     ICalProperty(name: "X-WR-CALNAME", value: "Corp Cal"),
     ICalProperty(name: "X-WR-TIMEZONE", value: "America/Los_Angeles"),
@@ -802,7 +1148,7 @@ extension ICalProperty {
     static func geo(latitude: Double, longitude: Double) -> ICalProperty {
         return ICalProperty(name: "GEO", value: "\(latitude);\(longitude)")
     }
-    
+
     static func refreshInterval(hours: Int) -> ICalProperty {
         return ICalProperty(name: "REFRESH-INTERVAL", value: "PT\(hours)H")
     }
@@ -882,13 +1228,13 @@ extension ICalendar {
     var recurringEventCount: Int {
         events.filter { $0.recurrenceRule != nil }.count
     }
-    
+
     func eventsByCategory() -> [String: [ICalEvent]] {
         Dictionary(grouping: events) { event in
             event.categories.first ?? "Uncategorized"
         }
     }
-    
+
     func eventsByLocation() -> [String: [ICalEvent]] {
         Dictionary(grouping: events) { event in
             event.location ?? "No Location"

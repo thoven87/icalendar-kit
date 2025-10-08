@@ -370,9 +370,7 @@ public enum ICalendarFactory {
         triggerMinutesBefore: Int
     ) -> ICalAlarm {
         let trigger = "-PT\(triggerMinutesBefore)M"
-        var alarm = ICalAlarm(action: .display, trigger: trigger)
-        alarm.description = description
-        return alarm
+        return ICalAlarm(displayAlarm: trigger, description: description)
     }
 
     /// Create an audio alarm
@@ -381,7 +379,7 @@ public enum ICalendarFactory {
         audioFile: String? = nil
     ) -> ICalAlarm {
         let trigger = "-PT\(triggerMinutesBefore)M"
-        var alarm = ICalAlarm(action: .audio, trigger: trigger)
+        var alarm = ICalAlarm(audioAlarm: trigger)
         if let audioFile = audioFile {
             alarm.attach = audioFile
         }
@@ -396,10 +394,12 @@ public enum ICalendarFactory {
         triggerMinutesBefore: Int
     ) -> ICalAlarm {
         let trigger = "-PT\(triggerMinutesBefore)M"
-        var alarm = ICalAlarm(action: .email, trigger: trigger)
-        alarm.summary = summary
-        alarm.description = description
-        alarm.attendees = attendees
+        let primaryAttendee = attendees.first ?? ICalAttendee(email: "noreply@example.com", commonName: "Event Notification")
+        var alarm = ICalAlarm(emailAlarm: trigger, description: description, summary: summary, attendee: primaryAttendee)
+        // Add any additional attendees
+        if attendees.count > 1 {
+            alarm.attendees = attendees
+        }
         return alarm
     }
 

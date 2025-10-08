@@ -35,6 +35,7 @@ package struct ICalendarFormatter {
         return formatter
     }()
 
+    @inline(__always)
     package static func format(dateTime: ICalDateTime) -> String {
         if dateTime.isDateOnly {
             return dateOnlyFormatter.string(from: dateTime.date)
@@ -56,6 +57,7 @@ package struct ICalendarFormatter {
         }
     }
 
+    @inline(__always)
     package static func parseDateTime(_ value: String, timeZone: TimeZone = .gmt) -> ICalDateTime? {
         let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -78,6 +80,7 @@ package struct ICalendarFormatter {
 
     // MARK: - Duration Formatting
 
+    @inline(__always)
     package static func format(duration: ICalDuration) -> String {
         var result = duration.isNegative ? "-P" : "P"
 
@@ -113,6 +116,7 @@ package struct ICalendarFormatter {
         return result
     }
 
+    @inline(__always)
     package static func parseDuration(_ value: String) -> ICalDuration? {
         let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedValue.isEmpty else { return nil }
@@ -474,11 +478,15 @@ package struct ICalendarFormatter {
 
         var result = ""
         var currentLine = line
+        var isFirstLine = true
 
         while currentLine.count > maxLength {
-            let cutIndex = currentLine.index(currentLine.startIndex, offsetBy: maxLength)
+            // First line can use full maxLength, continuation lines need space for leading space
+            let effectiveLength = isFirstLine ? maxLength : maxLength - 1
+            let cutIndex = currentLine.index(currentLine.startIndex, offsetBy: effectiveLength)
             result += String(currentLine[..<cutIndex]) + "\r\n "
             currentLine = String(currentLine[cutIndex...])
+            isFirstLine = false
         }
 
         result += currentLine

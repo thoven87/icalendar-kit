@@ -371,7 +371,7 @@ struct ICalendarRFC7986ExtensionsTests {
 
         // Verify all properties are set
         #expect(calendar.name == "Complete Test Calendar")
-        #expect(calendar.calendarDescription == "Calendar testing all RFC 7986 features")
+        #expect(calendar.calendarDescription == "Extended description for X-WR-CALDESC")
         #expect(calendar.color == "#FF5722")
         #expect(calendar.displayName == "RFC 7986 Test")
         #expect(calendar.xwrTimeZone == "America/New_York")
@@ -386,6 +386,7 @@ struct ICalendarRFC7986ExtensionsTests {
         let serialized: String = try ICalendarKit.serializeCalendar(calendar)
         #expect(serialized.contains("NAME:Complete Test Calendar"))
         #expect(serialized.contains("DESCRIPTION:Calendar testing all RFC 7986 features"))
+        #expect(serialized.contains("X-WR-CALDESC:Extended description for X-WR-CALDESC"))
         #expect(serialized.contains("COLOR:#FF5722"))
         #expect(serialized.contains("X-WR-CALNAME:RFC 7986 Test"))
         #expect(serialized.contains("X-WR-TIMEZONE:America/New_York"))

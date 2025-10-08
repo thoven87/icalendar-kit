@@ -10,24 +10,28 @@ public struct ICalEvent: ICalendarComponent, ICalendarBuildable, Sendable {
     public var components: [any ICalendarComponent]
 
     /// Unique identifier for the event
+    @inline(__always)
     public var uid: String {
         get { getPropertyValue(ICalPropertyName.uid) ?? UUID().uuidString }
         set { setPropertyValue(ICalPropertyName.uid, value: newValue) }
     }
 
-    /// Date-time stamp (when the event was created/last modified)
-    public var dateTimeStamp: ICalDateTime? {
-        get { getDateTimeProperty(ICalPropertyName.dateTimeStamp) }
+    /// Date-time stamp (RFC 5545 3.8.7.2) - REQUIRED
+    @inline(__always)
+    public var dateTimeStamp: ICalDateTime {
+        get { getDateTimeProperty(ICalPropertyName.dateTimeStamp)! }
         set { setDateTimeProperty(ICalPropertyName.dateTimeStamp, value: newValue) }
     }
 
-    /// Start date and time
+    /// Start date and time (RFC 5545 3.8.2.4)
+    @inline(__always)
     public var dateTimeStart: ICalDateTime? {
         get { getDateTimeProperty(ICalPropertyName.dateTimeStart) }
         set { setDateTimeProperty(ICalPropertyName.dateTimeStart, value: newValue) }
     }
 
-    /// End date and time
+    /// End date and time (RFC 5545 3.8.2.2)
+    @inline(__always)
     public var dateTimeEnd: ICalDateTime? {
         get { getDateTimeProperty(ICalPropertyName.dateTimeEnd) }
         set { setDateTimeProperty(ICalPropertyName.dateTimeEnd, value: newValue) }
@@ -39,19 +43,73 @@ public struct ICalEvent: ICalendarComponent, ICalendarBuildable, Sendable {
         set { setDurationProperty(ICalPropertyName.duration, value: newValue) }
     }
 
-    /// Event summary/title
+    /// Event summary/title (RFC 5545 3.8.1.12)
+    @inline(__always)
     public var summary: String? {
         get { getPropertyValue(ICalPropertyName.summary) }
         set { setPropertyValue(ICalPropertyName.summary, value: newValue) }
     }
 
-    /// Event description
+    /// Event description (RFC 5545 3.8.1.5)
+    @inline(__always)
     public var description: String? {
         get { getPropertyValue(ICalPropertyName.description) }
         set { setPropertyValue(ICalPropertyName.description, value: newValue) }
     }
 
-    /// Event location
+    /// Alternative HTML description
+    /// Automatically sets FMTTYPE=text/html parameter for rich content
+    public var htmlDescription: String? {
+        get {
+            guard let property = properties.first(where: { $0.name == ICalPropertyName.xAltDesc })
+            else { return nil }
+            return property.value
+        }
+        set {
+            // Remove existing X-ALT-DESC properties
+            properties.removeAll { $0.name == ICalPropertyName.xAltDesc }
+
+            if let value = newValue {
+                let property = ICalProperty(
+                    name: ICalPropertyName.xAltDesc,
+                    value: value,
+                    parameters: ["FMTTYPE": "text/html"]
+                )
+                properties.append(property)
+            }
+        }
+    }
+
+    /// Alternative description with custom format type (internal use for builder)
+    /// - Parameters:
+    ///   - description: The alternative description content
+    ///   - formatType: The format type (e.g., "text/html", "text/plain", "text/rtf")
+    internal mutating func setAlternativeDescription(_ description: String, formatType: String) {
+        // Remove existing X-ALT-DESC properties
+        properties.removeAll { $0.name == ICalPropertyName.xAltDesc }
+
+        let property = ICalProperty(
+            name: ICalPropertyName.xAltDesc,
+            value: description,
+            parameters: ["FMTTYPE": formatType]
+        )
+        properties.append(property)
+    }
+
+    /// Get alternative description with its format type
+    /// - Returns: A tuple containing the alternative description and its format type, or nil if not set
+    public func getAlternativeDescriptionWithFormat() -> (description: String, formatType: String?)? {
+        guard let property = properties.first(where: { $0.name == ICalPropertyName.xAltDesc })
+        else {
+            return nil
+        }
+
+        let formatType = property.parameters["FMTTYPE"]
+        return (description: property.value, formatType: formatType)
+    }
+
+    /// Event location (RFC 5545 3.8.1.7)
+    @inline(__always)
     public var location: String? {
         get { getPropertyValue(ICalPropertyName.location) }
         set { setPropertyValue(ICalPropertyName.location, value: newValue) }
@@ -405,6 +463,14 @@ public struct ICalEvent: ICalendarComponent, ICalendarBuildable, Sendable {
     public init(properties: [ICalendarProperty] = [], components: [any ICalendarComponent] = []) {
         self.properties = properties
         self.components = components
+
+        // Ensure required properties are set
+        if getPropertyValue(ICalPropertyName.uid) == nil {
+            setPropertyValue(ICalPropertyName.uid, value: UUID().uuidString)
+        }
+        if getDateTimeProperty(ICalPropertyName.dateTimeStamp) == nil {
+            setDateTimeProperty(ICalPropertyName.dateTimeStamp, value: ICalDateTime(date: Date()))
+        }
     }
 
     public init(uid: String = UUID().uuidString, summary: String) {

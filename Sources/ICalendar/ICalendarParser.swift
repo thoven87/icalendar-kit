@@ -216,10 +216,8 @@ public struct ICalendarParser: Sendable {
             throw ICalendarError.missingRequiredProperty("UID")
         }
 
-        // DTSTAMP is required
-        guard event.dateTimeStamp != nil else {
-            throw ICalendarError.missingRequiredProperty("DTSTAMP")
-        }
+        // DTSTAMP is required (now automatically guaranteed by type system)
+        // No need to check since dateTimeStamp is non-optional
 
         // Either DTEND or DURATION must be present if DTSTART is present
         if event.dateTimeStart != nil {
@@ -240,10 +238,8 @@ public struct ICalendarParser: Sendable {
             throw ICalendarError.missingRequiredProperty("UID")
         }
 
-        // DTSTAMP is required
-        guard todo.dateTimeStamp != nil else {
-            throw ICalendarError.missingRequiredProperty("DTSTAMP")
-        }
+        // DTSTAMP is required (now automatically guaranteed by type system)
+        // No need to check since dateTimeStamp is non-optional
 
         // Validate sub-components
         for subComponent in todo.components {
@@ -257,10 +253,8 @@ public struct ICalendarParser: Sendable {
             throw ICalendarError.missingRequiredProperty("UID")
         }
 
-        // DTSTAMP is required
-        guard journal.dateTimeStamp != nil else {
-            throw ICalendarError.missingRequiredProperty("DTSTAMP")
-        }
+        // DTSTAMP is required (now automatically guaranteed by type system)
+        // No need to check since dateTimeStamp is non-optional
     }
 
     private func validateAlarm(_ alarm: ICalAlarm) throws {

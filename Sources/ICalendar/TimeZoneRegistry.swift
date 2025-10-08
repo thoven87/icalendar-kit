@@ -44,6 +44,9 @@ public final class TimeZoneRegistry: Sendable {
 
         var timeZone = ICalTimeZone(timeZoneId: tzid)
 
+        // Add TZURL for RFC 7808 compliance - automatic timezone updates
+        timeZone.timeZoneUrl = ICalTimeZoneURLGenerator.generateTZURL(for: tzid)
+
         // Add X-LIC-LOCATION for better compatibility - set to IANA timezone identifier like ical.Net
         timeZone.xLicLocation = tzid
 
