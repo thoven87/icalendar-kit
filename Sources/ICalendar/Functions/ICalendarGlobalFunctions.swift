@@ -370,7 +370,8 @@ public enum ICalendarFactory {
         triggerMinutesBefore: Int
     ) -> ICalAlarm {
         let trigger = "-PT\(triggerMinutesBefore)M"
-        return ICalAlarm(displayAlarm: trigger, description: description)
+        let displayAlarm = DisplayAlarm(trigger: trigger, description: description)
+        return ICalAlarm(display: displayAlarm)
     }
 
     /// Create an audio alarm
@@ -379,28 +380,35 @@ public enum ICalendarFactory {
         audioFile: String? = nil
     ) -> ICalAlarm {
         let trigger = "-PT\(triggerMinutesBefore)M"
-        var alarm = ICalAlarm(audioAlarm: trigger)
+        var attachment: ICalAttachment?
         if let audioFile = audioFile {
-            alarm.attach = audioFile
+            attachment = ICalAttachment(uri: audioFile)
         }
-        return alarm
+        let audioAlarm = AudioAlarm(trigger: trigger, attachment: attachment)
+        return ICalAlarm(audio: audioAlarm)
     }
 
     /// Create an email alarm
     public static func createEmailAlarm(
         summary: String,
         description: String,
-        attendees: [ICalAttendee],
+        attendee: ICalAttendee,
         triggerMinutesBefore: Int
     ) -> ICalAlarm {
         let trigger = "-PT\(triggerMinutesBefore)M"
-        let primaryAttendee = attendees.first ?? ICalAttendee(email: "noreply@example.com", commonName: "Event Notification")
-        var alarm = ICalAlarm(emailAlarm: trigger, description: description, summary: summary, attendee: primaryAttendee)
-        // Add any additional attendees
-        if attendees.count > 1 {
-            alarm.attendees = attendees
+        do {
+            let emailAlarm = try EmailAlarm(
+                trigger: trigger,
+                description: description,
+                summary: summary,
+                attendees: attendee
+            )
+            return ICalAlarm(email: emailAlarm)
+        } catch {
+            // Fallback to display alarm if email alarm creation fails
+            let displayAlarm = DisplayAlarm(trigger: trigger, description: description)
+            return ICalAlarm(display: displayAlarm)
         }
-        return alarm
     }
 
     // MARK: - Attendee Creation

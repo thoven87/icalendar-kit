@@ -567,6 +567,9 @@ public enum ICalendarError: Error, Sendable {
     case invalidParameterValue(parameter: String, value: String)
     case dateCalculationFailed(String)
     case invalidCalendarOperation(String)
+    case rfcViolation(String)
+    case emailAlarmRequiresAttendees
+    case durationRepeatMismatch
 }
 
 // MARK: - Constants

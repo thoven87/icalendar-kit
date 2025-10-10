@@ -507,34 +507,6 @@ public struct ICalendar: ICalendarComponent, Sendable {
                     event.uid = UUID().uuidString
                 }
 
-                // DTSTAMP is now automatically set by constructors
-
-                // Also fix alarms within events
-                var fixedAlarms: [ICalAlarm] = []
-                for var alarm in event.alarms {
-                    if alarm.action == .display && alarm.description == nil {
-                        alarm.description = event.summary ?? "Reminder"
-                    } else if alarm.action == .email {
-                        if alarm.description == nil {
-                            alarm.description = event.summary ?? "Reminder"
-                        }
-                        if alarm.summary == nil {
-                            alarm.summary = event.summary ?? "Event Reminder"
-                        }
-                        if alarm.attendees.isEmpty {
-                            if let organizer = event.organizer {
-                                let attendee = ICalAttendee(email: organizer.email, commonName: organizer.commonName)
-                                alarm.attendees = [attendee]
-                            } else {
-                                let attendee = ICalAttendee(email: "noreply@example.com", commonName: "Event Notification")
-                                alarm.attendees = [attendee]
-                            }
-                        }
-                    }
-                    fixedAlarms.append(alarm)
-                }
-                event.alarms = fixedAlarms
-
                 components[index] = event
             } else if var todo = components[index] as? ICalTodo {
                 // Ensure todos have UID (RFC 5545 requirement)
@@ -542,16 +514,12 @@ public struct ICalendar: ICalendarComponent, Sendable {
                     todo.uid = UUID().uuidString
                 }
 
-                // DTSTAMP is now automatically set by constructors
-
                 components[index] = todo
             } else if var journal = components[index] as? ICalJournal {
                 // Ensure journals have UID (RFC 5545 requirement)
                 if journal.getPropertyValue(ICalPropertyName.uid) == nil {
                     journal.uid = UUID().uuidString
                 }
-
-                // DTSTAMP is now automatically set by constructors
 
                 components[index] = journal
             }
