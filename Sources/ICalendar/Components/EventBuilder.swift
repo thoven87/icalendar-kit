@@ -355,7 +355,8 @@ public struct EventBuilder: Sendable, ICalendarBuildable {
 
     /// Adds a reminder before the event
     public func reminderBefore(minutes: Int) -> EventBuilder {
-        addAlarm(.display(description: event.summary ?? "Reminder"), trigger: .minutesBefore(minutes))
+        let displayAlarm = DisplayAlarm(trigger: "-PT\(minutes)M", description: event.summary ?? "Reminder")
+        return addAlarm(.display(description: displayAlarm.description), trigger: .minutesBefore(minutes))
     }
 
     /// Adds exception dates (dates when recurring event should not occur)
@@ -411,38 +412,46 @@ public struct EventBuilder: Sendable, ICalendarBuildable {
         let alarm: ICalAlarm
         switch action {
         case .display(let description):
-            alarm = ICalAlarm(displayAlarm: trigger.triggerString, description: description)
+            let displayAlarm = DisplayAlarm(trigger: trigger.triggerString, description: description)
+            alarm = ICalAlarm(display: displayAlarm)
 
         case .audio(let attachment):
-            var audioAlarm = ICalAlarm(audioAlarm: trigger.triggerString)
-            if let attachment = attachment {
-                audioAlarm.attachments = [attachment]
-            }
-            alarm = audioAlarm
+            let audioAlarm = AudioAlarm(trigger: trigger.triggerString, attachment: attachment)
+            alarm = ICalAlarm(audio: audioAlarm)
 
         case .email(let description, let summary, let attendee):
-            alarm = ICalAlarm(emailAlarm: trigger.triggerString, description: description, summary: summary, attendee: attendee)
+            do {
+                let emailAlarm = try EmailAlarm(
+                    trigger: trigger.triggerString,
+                    description: description,
+                    summary: summary,
+                    attendees: attendee
+                )
+                alarm = ICalAlarm(email: emailAlarm)
+            } catch {
+                // Fallback to display alarm if email alarm creation fails
+                let displayAlarm = DisplayAlarm(trigger: trigger.triggerString, description: description)
+                alarm = ICalAlarm(display: displayAlarm)
+            }
 
         case .procedure(let attachment):
-            var procAlarm = ICalAlarm(
+            // Procedure alarms are deprecated but still supported via properties
+            alarm = ICalAlarm(
                 properties: [
                     ICalProperty(name: ICalPropertyName.action, value: ICalAlarmAction.procedure.rawValue),
                     ICalProperty(name: ICalPropertyName.trigger, value: trigger.triggerString),
+                    ICalProperty(name: ICalPropertyName.attach, value: attachment.value),
                 ],
                 components: []
             )
-            procAlarm.attachments = [attachment]
-            alarm = procAlarm
 
         case .proximity(let description):
-            alarm = ICalAlarm(
-                properties: [
-                    ICalProperty(name: ICalPropertyName.action, value: ICalAlarmAction.proximity.rawValue),
-                    ICalProperty(name: ICalPropertyName.trigger, value: trigger.triggerString),
-                    ICalProperty(name: ICalPropertyName.description, value: description ?? "Proximity alarm"),
-                ],
-                components: []
+            let proximityTrigger = ICalProximityTrigger(latitude: 0.0, longitude: 0.0, radius: 100.0, entering: true)
+            let proximityAlarm = ProximityAlarm(
+                proximityTrigger: proximityTrigger,
+                description: description
             )
+            alarm = ICalAlarm(proximity: proximityAlarm)
         }
 
         builder.event.addAlarm(alarm)

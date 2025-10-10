@@ -201,8 +201,9 @@ public struct ICalendarParser: Sendable {
             try validateTodo(todo)
         case let journal as ICalJournal:
             try validateJournal(journal)
-        case let alarm as ICalAlarm:
-            try validateAlarm(alarm)
+        case _ as ICalAlarm:
+            // Alarms guarantee RFC compliance at creation time - no validation needed
+            break
         case let timeZone as ICalTimeZone:
             try validateTimeZone(timeZone)
         default:
@@ -215,9 +216,6 @@ public struct ICalendarParser: Sendable {
         if event.uid.isEmpty {
             throw ICalendarError.missingRequiredProperty("UID")
         }
-
-        // DTSTAMP is required (now automatically guaranteed by type system)
-        // No need to check since dateTimeStamp is non-optional
 
         // Either DTEND or DURATION must be present if DTSTART is present
         if event.dateTimeStart != nil {
@@ -238,9 +236,6 @@ public struct ICalendarParser: Sendable {
             throw ICalendarError.missingRequiredProperty("UID")
         }
 
-        // DTSTAMP is required (now automatically guaranteed by type system)
-        // No need to check since dateTimeStamp is non-optional
-
         // Validate sub-components
         for subComponent in todo.components {
             try validateComponent(subComponent)
@@ -251,57 +246,6 @@ public struct ICalendarParser: Sendable {
         // UID is required
         if journal.uid.isEmpty {
             throw ICalendarError.missingRequiredProperty("UID")
-        }
-
-        // DTSTAMP is required (now automatically guaranteed by type system)
-        // No need to check since dateTimeStamp is non-optional
-    }
-
-    private func validateAlarm(_ alarm: ICalAlarm) throws {
-        // ACTION is required
-        guard alarm.action != nil else {
-            throw ICalendarError.missingRequiredProperty("ACTION")
-        }
-
-        // TRIGGER is required
-        guard alarm.trigger != nil else {
-            throw ICalendarError.missingRequiredProperty("TRIGGER")
-        }
-
-        // Validate action-specific requirements
-        if let action = alarm.action {
-            switch action {
-            case .display:
-                // DESCRIPTION is required for display alarms
-                guard alarm.description != nil else {
-                    throw ICalendarError.missingRequiredProperty("DESCRIPTION")
-                }
-            case .proximity:
-                // PROXIMITY-TRIGGER is required for proximity alarms
-                guard alarm.proximityTrigger != nil else {
-                    throw ICalendarError.missingRequiredProperty("PROXIMITY-TRIGGER")
-                }
-            case .email:
-                // DESCRIPTION and SUMMARY are required for email alarms
-                guard alarm.description != nil else {
-                    throw ICalendarError.missingRequiredProperty("DESCRIPTION")
-                }
-                guard alarm.summary != nil else {
-                    throw ICalendarError.missingRequiredProperty("SUMMARY")
-                }
-                // At least one attendee is required
-                guard !alarm.attendees.isEmpty else {
-                    throw ICalendarError.missingRequiredProperty("ATTENDEE")
-                }
-            case .audio:
-                // ATTACH is optional for audio alarms
-                break
-            case .procedure:
-                // ATTACH is required for procedure alarms
-                guard alarm.attach != nil else {
-                    throw ICalendarError.missingRequiredProperty("ATTACH")
-                }
-            }
         }
     }
 

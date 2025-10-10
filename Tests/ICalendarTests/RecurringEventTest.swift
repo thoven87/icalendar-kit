@@ -314,7 +314,7 @@ struct RecurringEventTests {
         monthlyEvent.status = .confirmed
 
         // Add alarm
-        let alarm = ICalAlarm(displayAlarm: "-PT30M", description: "Monthly reminder in 30 minutes")
+        let alarm = ICalAlarm(display: DisplayAlarm(trigger: "-PT30M", description: "Monthly reminder in 30 minutes"))
         monthlyEvent.addAlarm(alarm)
 
         calendar.addEvent(monthlyEvent)

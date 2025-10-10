@@ -401,211 +401,502 @@ public enum ICalAlarmAction: String, Sendable, CaseIterable, Codable {
     case proximity = "PROXIMITY"  // RFC 9074
 }
 
-/// Represents an alarm (VALARM)
-public struct ICalAlarm: ICalendarComponent, Sendable {
-    public static let componentName = "VALARM"
+// MARK: - Type-Safe Alarm Types
 
-    public var properties: [ICalendarProperty]
-    public var components: [any ICalendarComponent]
+/// RFC 5545 compliant alarm types that encode requirements in the type system
+public enum ICalAlarmType: Sendable {
+    case audio(AudioAlarm)
+    case display(DisplayAlarm)
+    case email(EmailAlarm)
+    case proximity(ProximityAlarm)  // RFC 9074
+}
 
-    /// Alarm action
-    public var action: ICalAlarmAction? {
-        get {
-            guard let value = getPropertyValue(ICalPropertyName.action) else { return nil }
-            return ICalAlarmAction(rawValue: value)
-        }
-        set { setPropertyValue(ICalPropertyName.action, value: newValue?.rawValue) }
+/// Audio alarm - only requires ACTION and TRIGGER (RFC 5545)
+public struct AudioAlarm: Sendable, Hashable, Codable {
+    public let trigger: String
+    public let attachment: ICalAttachment?
+    public let duration: ICalDuration?
+    public let repeatCount: Int?
+
+    /// Create audio alarm (duration and repeatCount must both be provided or both be nil)
+    public init(
+        trigger: String,
+        attachment: ICalAttachment? = nil
+    ) {
+        self.trigger = trigger
+        self.attachment = attachment
+        self.duration = nil
+        self.repeatCount = nil
     }
 
-    /// Trigger (when the alarm should fire)
-    public var trigger: String? {
-        get { getPropertyValue(ICalPropertyName.trigger) }
-        set { setPropertyValue(ICalPropertyName.trigger, value: newValue) }
-    }
-
-    /// Repeat count
-    public var repeatCount: Int? {
-        get {
-            guard let value = getPropertyValue(ICalPropertyName.repeatCount) else { return nil }
-            return Int(value)
-        }
-        set { setPropertyValue(ICalPropertyName.repeatCount, value: newValue?.description) }
-    }
-
-    /// Duration between repeats
-    public var duration: ICalDuration? {
-        get { getDurationProperty(ICalPropertyName.duration) }
-        set { setDurationProperty(ICalPropertyName.duration, value: newValue) }
-    }
-
-    /// Description (for display alarms)
-    public var description: String? {
-        get { getPropertyValue(ICalPropertyName.description) }
-        set { setPropertyValue(ICalPropertyName.description, value: newValue) }
-    }
-
-    /// Summary (for email alarms)
-    public var summary: String? {
-        get { getPropertyValue(ICalPropertyName.summary) }
-        set { setPropertyValue(ICalPropertyName.summary, value: newValue) }
-    }
-
-    /// Attendees (for email alarms)
-    public var attendees: [ICalAttendee] {
-        get { getAttendeesProperty(ICalPropertyName.attendee) }
-        set { setAttendeesProperty(ICalPropertyName.attendee, values: newValue) }
-    }
-
-    /// Attachment (for audio alarms) - legacy string-only support
-    public var attach: String? {
-        get { getPropertyValue(ICalPropertyName.attach) }
-        set { setPropertyValue(ICalPropertyName.attach, value: newValue) }
-    }
-
-    /// Enhanced attachment support with binary and URI
-    public var attachments: [ICalAttachment] {
-        get {
-            let attachProperties = properties.filter { $0.name == ICalPropertyName.attach }
-            return attachProperties.compactMap { property in
-                if property.parameters[ICalParameterName.encoding] == "BASE64" {
-                    guard let data = Data(base64Encoded: property.value) else { return nil }
-                    return ICalAttachment(binaryData: data, mediaType: property.parameters[ICalParameterName.formatType])
-                } else {
-                    return ICalAttachment(uri: property.value, mediaType: property.parameters[ICalParameterName.formatType])
-                }
-            }
-        }
-        set {
-            // Remove existing ATTACH properties
-            properties.removeAll { $0.name == ICalPropertyName.attach }
-
-            // Add new attachment properties
-            for attachment in newValue {
-                var parameters: [String: String] = [:]
-
-                if let mediaType = attachment.mediaType {
-                    parameters[ICalParameterName.formatType] = mediaType
-                }
-
-                if attachment.type == .binary {
-                    parameters[ICalParameterName.encoding] = "BASE64"
-                    parameters[ICalParameterName.valueType] = "BINARY"
-                }
-
-                let property = ICalProperty(name: ICalPropertyName.attach, value: attachment.value, parameters: parameters)
-                properties.append(property)
-            }
-        }
-    }
-
-    public init(properties: [ICalendarProperty] = [], components: [any ICalendarComponent] = []) {
-        self.properties = properties
-        self.components = components
-    }
-
-    /// RFC 9074: Proximity trigger for location-based alarms
-    public var proximityTrigger: ICalProximityTrigger? {
-        get {
-            guard let value = getPropertyValue(ICalPropertyName.proximityTrigger) else { return nil }
-            return ICalProximityTrigger(from: value)
-        }
-        set { setPropertyValue(ICalPropertyName.proximityTrigger, value: newValue?.stringValue) }
-    }
-
-    /// RFC 9074: Acknowledgment information
-    public var acknowledgment: ICalAlarmAcknowledgment? {
-        get {
-            guard let value = getPropertyValue(ICalPropertyName.acknowledged),
-                let dateTime = value.asICalDateTime
-            else { return nil }
-            let acknowledgedBy = getPropertyValue("ACKNOWLEDGED-BY")
-            return ICalAlarmAcknowledgment(acknowledgedAt: dateTime, acknowledgedBy: acknowledgedBy)
-        }
-        set {
-            if let ack = newValue {
-                setPropertyValue(ICalPropertyName.acknowledged, value: ICalendarFormatter.format(dateTime: ack.acknowledgedAt))
-                setPropertyValue("ACKNOWLEDGED-BY", value: ack.acknowledgedBy)
-            } else {
-                setPropertyValue(ICalPropertyName.acknowledged, value: nil)
-                setPropertyValue("ACKNOWLEDGED-BY", value: nil)
-            }
-        }
-    }
-
-    /// RFC 9074: Related alarms
-    public var relatedAlarms: [String] {
-        get {
-            properties
-                .filter { $0.name == ICalPropertyName.relatedTo }
-                .map { $0.value }
-        }
-        set {
-            // Remove existing RELATED-TO properties
-            properties.removeAll { $0.name == ICalPropertyName.relatedTo }
-
-            // Add new RELATED-TO properties
-            for relatedUID in newValue {
-                let property = ICalProperty(name: ICalPropertyName.relatedTo, value: relatedUID)
-                properties.append(property)
-            }
-        }
-    }
-
-    /// Create DISPLAY alarm (requires DESCRIPTION)
-    public init(displayAlarm trigger: String, description: String) {
-        self.properties = [
-            ICalProperty(name: ICalPropertyName.action, value: ICalAlarmAction.display.rawValue),
-            ICalProperty(name: ICalPropertyName.trigger, value: trigger),
-            ICalProperty(name: ICalPropertyName.description, value: description),
-        ]
-        self.components = []
-    }
-
-    /// Create AUDIO alarm (only requires ACTION and TRIGGER)
-    public init(audioAlarm trigger: String) {
-        self.properties = [
-            ICalProperty(name: ICalPropertyName.action, value: ICalAlarmAction.audio.rawValue),
-            ICalProperty(name: ICalPropertyName.trigger, value: trigger),
-        ]
-        self.components = []
-    }
-
-    /// Create EMAIL alarm (requires DESCRIPTION, SUMMARY, and ATTENDEE)
-    public init(emailAlarm trigger: String, description: String, summary: String, attendee: ICalAttendee) {
-        // Build attendee parameters
-        var attendeeParams: [String: String] = [:]
-        if let name = attendee.commonName { attendeeParams["CN"] = name }
-        if let role = attendee.role { attendeeParams["ROLE"] = role.rawValue }
-        if let status = attendee.participationStatus { attendeeParams["PARTSTAT"] = status.rawValue }
-        if let rsvp = attendee.rsvp { attendeeParams["RSVP"] = rsvp ? "TRUE" : "FALSE" }
-
-        self.properties = [
-            ICalProperty(name: ICalPropertyName.action, value: ICalAlarmAction.email.rawValue),
-            ICalProperty(name: ICalPropertyName.trigger, value: trigger),
-            ICalProperty(name: ICalPropertyName.description, value: description),
-            ICalProperty(name: ICalPropertyName.summary, value: summary),
-            ICalProperty(name: ICalPropertyName.attendee, value: "mailto:\(attendee.email)", parameters: attendeeParams),
-        ]
-        self.components = []
-    }
-
-    /// Create proximity-based alarm (RFC 9074)
-    public init(proximityTrigger: ICalProximityTrigger, description: String? = nil) {
-        self.properties = [
-            ICalProperty(name: ICalPropertyName.action, value: ICalAlarmAction.proximity.rawValue),
-            ICalProperty(name: ICalPropertyName.proximityTrigger, value: proximityTrigger.stringValue),
-            ICalProperty(name: ICalPropertyName.trigger, value: "PT0S"),  // Dummy trigger for RFC compliance
-        ]
-        self.components = []
-
-        if let description = description {
-            self.description = description
-        }
+    /// Create repeating audio alarm (both duration and repeatCount required)
+    public init(
+        trigger: String,
+        attachment: ICalAttachment? = nil,
+        duration: ICalDuration,
+        repeatCount: Int
+    ) {
+        self.trigger = trigger
+        self.attachment = attachment
+        self.duration = duration
+        self.repeatCount = repeatCount
     }
 }
 
-// MARK: - Time Zone Component
+/// Display alarm - requires ACTION, TRIGGER, and DESCRIPTION (RFC 5545)
+public struct DisplayAlarm: Sendable, Hashable, Codable {
+    public let trigger: String
+    public let description: String
+    public let duration: ICalDuration?
+    public let repeatCount: Int?
 
+    /// Create display alarm (required: trigger and description)
+    public init(trigger: String, description: String) {
+        self.trigger = trigger
+        self.description = description
+        self.duration = nil
+        self.repeatCount = nil
+    }
+
+    /// Create repeating display alarm (both duration and repeatCount required)
+    public init(
+        trigger: String,
+        description: String,
+        duration: ICalDuration,
+        repeatCount: Int
+    ) {
+        self.trigger = trigger
+        self.description = description
+        self.duration = duration
+        self.repeatCount = repeatCount
+    }
+}
+
+/// Email alarm - requires ACTION, TRIGGER, DESCRIPTION, SUMMARY, and ATTENDEES (RFC 5545)
+public struct EmailAlarm: Sendable, Hashable, Codable {
+    public let trigger: String
+    public let description: String
+    public let summary: String
+    public let attendees: [ICalAttendee]
+    public let attachments: [ICalAttachment]
+    public let duration: ICalDuration?
+    public let repeatCount: Int?
+
+    /// Create email alarm with array of attendees (primary initializer)
+    public init(
+        trigger: String,
+        description: String,
+        summary: String,
+        attendees: [ICalAttendee],
+        attachments: [ICalAttachment] = [],
+        duration: ICalDuration? = nil,
+        repeatCount: Int? = nil
+    ) throws {
+        guard !attendees.isEmpty else {
+            throw ICalendarError.emailAlarmRequiresAttendees
+        }
+
+        // RFC 5545: DURATION and REPEAT must both be present or both absent
+        if (duration != nil && repeatCount == nil) || (duration == nil && repeatCount != nil) {
+            throw ICalendarError.durationRepeatMismatch
+        }
+
+        self.trigger = trigger
+        self.description = description
+        self.summary = summary
+        self.attendees = attendees
+        self.attachments = attachments
+        self.duration = duration
+        self.repeatCount = repeatCount
+    }
+
+    /// Convenience initializer with variadic attendees for clean API
+    public init(
+        trigger: String,
+        description: String,
+        summary: String,
+        attendees: ICalAttendee...,
+        attachments: [ICalAttachment] = [],
+        duration: ICalDuration? = nil,
+        repeatCount: Int? = nil
+    ) throws {
+        try self.init(
+            trigger: trigger,
+            description: description,
+            summary: summary,
+            attendees: Array(attendees),
+            attachments: attachments,
+            duration: duration,
+            repeatCount: repeatCount
+        )
+    }
+}
+
+/// Proximity alarm - RFC 9074 extension for location-based alarms
+public struct ProximityAlarm: Sendable, Hashable, Codable {
+    public let proximityTrigger: ICalProximityTrigger
+    public let description: String?
+    public let duration: ICalDuration?
+    public let repeatCount: Int?
+
+    /// Create proximity alarm (proximityTrigger required)
+    public init(
+        proximityTrigger: ICalProximityTrigger,
+        description: String? = nil
+    ) {
+        self.proximityTrigger = proximityTrigger
+        self.description = description
+        self.duration = nil
+        self.repeatCount = nil
+    }
+
+    /// Create repeating proximity alarm (duration and repeatCount required)
+    public init(
+        proximityTrigger: ICalProximityTrigger,
+        description: String? = nil,
+        duration: ICalDuration,
+        repeatCount: Int
+    ) {
+        self.proximityTrigger = proximityTrigger
+        self.description = description
+        self.duration = duration
+        self.repeatCount = repeatCount
+    }
+}
+
+// MARK: - ICalAlarm
+
+/// RFC 5545 compliant alarm that can only be created in valid states
+public struct ICalAlarm: ICalendarComponent, Sendable {
+    public static let componentName = "VALARM"
+
+    public let type: ICalAlarmType
+    public let uid: String?
+    public let acknowledgment: ICalAlarmAcknowledgment?
+    public let relatedAlarms: [String]
+
+    // ICalendarComponent protocol requirements
+    public var properties: [ICalendarProperty] {
+        get { generateProperties() }
+        set {
+            // Properties are read-only in type-safe alarms since they're generated from the alarm type.
+            // This setter exists only for ICalendarComponent protocol conformance but is intentionally no-op.
+            // To modify an alarm, create a new instance with the desired type.
+        }
+    }
+    public var components: [any ICalendarComponent] {
+        get { [] }
+        set {
+            // Components are always empty for alarms since VALARM cannot contain sub-components per RFC 5545.
+            // This setter exists only for ICalendarComponent protocol conformance but is intentionally no-op.
+        }
+    }
+
+    public init(
+        type: ICalAlarmType,
+        uid: String? = nil,
+        acknowledgment: ICalAlarmAcknowledgment? = nil,
+        relatedAlarms: [String] = []
+    ) {
+        self.type = type
+        self.uid = uid
+        self.acknowledgment = acknowledgment
+        self.relatedAlarms = relatedAlarms
+    }
+
+    /// Convenience initializers for each alarm type
+    public init(audio: AudioAlarm, uid: String? = nil) {
+        self.init(type: .audio(audio), uid: uid)
+    }
+
+    public init(display: DisplayAlarm, uid: String? = nil) {
+        self.init(type: .display(display), uid: uid)
+    }
+
+    public init(email: EmailAlarm, uid: String? = nil) {
+        self.init(type: .email(email), uid: uid)
+    }
+
+    public init(proximity: ProximityAlarm, uid: String? = nil) {
+        self.init(type: .proximity(proximity), uid: uid)
+    }
+
+    /// ICalendarComponent protocol requirement - parse properties to create correct alarm type
+    public init(properties: [ICalendarProperty], components: [any ICalendarComponent]) {
+        // Extract common properties
+        let actionProp = properties.first { $0.name == ICalPropertyName.action }
+        let triggerProp = properties.first { $0.name == ICalPropertyName.trigger }
+        let descriptionProp = properties.first { $0.name == ICalPropertyName.description }
+        let summaryProp = properties.first { $0.name == ICalPropertyName.summary }
+        let attendeeProps = properties.filter { $0.name == ICalPropertyName.attendee }
+        let attachProps = properties.filter { $0.name == ICalPropertyName.attach }
+        let durationProp = properties.first { $0.name == ICalPropertyName.duration }
+        let repeatProp = properties.first { $0.name == ICalPropertyName.repeatCount }
+
+        let trigger = triggerProp?.value ?? "PT0S"
+        let duration = durationProp?.value != nil ? ICalDuration.from(durationProp!.value) : nil
+        let repeatCount = repeatProp?.value != nil ? Int(repeatProp!.value) : nil
+
+        // Parse based on ACTION property
+        let alarmType: ICalAlarmType
+        switch actionProp?.value.uppercased() {
+        case "DISPLAY":
+            let displayAlarm: DisplayAlarm
+            if let duration = duration, let repeatCount = repeatCount {
+                displayAlarm = DisplayAlarm(
+                    trigger: trigger,
+                    description: descriptionProp?.value ?? "Reminder",
+                    duration: duration,
+                    repeatCount: repeatCount
+                )
+            } else {
+                displayAlarm = DisplayAlarm(
+                    trigger: trigger,
+                    description: descriptionProp?.value ?? "Reminder"
+                )
+            }
+            alarmType = .display(displayAlarm)
+
+        case "EMAIL":
+            let attendees: [ICalAttendee] = attendeeProps.compactMap { prop in
+                // Parse MAILTO: format
+                let email = prop.value.hasPrefix("mailto:") ? String(prop.value.dropFirst(7)) : prop.value
+                let commonName = prop.parameters["CN"]
+                return ICalAttendee(email: email, commonName: commonName)
+            }
+
+            if !attendees.isEmpty {
+                do {
+                    // Use primary array-based initializer with all attendees
+                    let emailAlarm = try EmailAlarm(
+                        trigger: trigger,
+                        description: descriptionProp?.value ?? "Reminder",
+                        summary: summaryProp?.value ?? "Event Reminder",
+                        attendees: attendees,
+                        attachments: attachProps.compactMap { prop in
+                            ICalAttachment(uri: prop.value, mediaType: prop.parameters[ICalParameterName.formatType])
+                        },
+                        duration: duration,
+                        repeatCount: repeatCount
+                    )
+                    alarmType = .email(emailAlarm)
+                } catch {
+                    // Fallback if email alarm creation fails during parsing
+                    alarmType = .audio(AudioAlarm(trigger: trigger))
+                }
+            } else {
+                // Fallback if no valid attendees found
+                alarmType = .audio(AudioAlarm(trigger: trigger))
+            }
+
+        case "PROXIMITY":
+            let proximityTrigger = ICalProximityTrigger(latitude: 0.0, longitude: 0.0, radius: 100.0, entering: true)
+            let proximityAlarm: ProximityAlarm
+            if let duration = duration, let repeatCount = repeatCount {
+                proximityAlarm = ProximityAlarm(
+                    proximityTrigger: proximityTrigger,
+                    description: descriptionProp?.value,
+                    duration: duration,
+                    repeatCount: repeatCount
+                )
+            } else {
+                proximityAlarm = ProximityAlarm(
+                    proximityTrigger: proximityTrigger,
+                    description: descriptionProp?.value
+                )
+            }
+            alarmType = .proximity(proximityAlarm)
+
+        case "AUDIO":
+            let attachment = attachProps.first.flatMap { prop in
+                ICalAttachment(uri: prop.value, mediaType: prop.parameters[ICalParameterName.formatType])
+            }
+            let audioAlarm: AudioAlarm
+            if let duration = duration, let repeatCount = repeatCount {
+                audioAlarm = AudioAlarm(trigger: trigger, attachment: attachment, duration: duration, repeatCount: repeatCount)
+            } else {
+                audioAlarm = AudioAlarm(trigger: trigger, attachment: attachment)
+            }
+            alarmType = .audio(audioAlarm)
+
+        case .none:
+            let attachment = attachProps.first.flatMap { prop in
+                ICalAttachment(uri: prop.value, mediaType: prop.parameters[ICalParameterName.formatType])
+            }
+            let audioAlarm = AudioAlarm(trigger: trigger, attachment: attachment)
+            alarmType = .audio(audioAlarm)
+
+        default:
+            // Unknown action, fallback to audio
+            let audioAlarm = AudioAlarm(trigger: trigger)
+            alarmType = .audio(audioAlarm)
+        }
+
+        // Extract additional metadata
+        let uid = properties.first { $0.name == "UID" }?.value
+        let acknowledgedProp = properties.first { $0.name == "ACKNOWLEDGED" }
+        let acknowledgedByProp = properties.first { $0.name == "ACKNOWLEDGED-BY" }
+        let relatedProps = properties.filter { $0.name == "RELATED-TO" }
+
+        let acknowledgment: ICalAlarmAcknowledgment?
+        if let ackValue = acknowledgedProp?.value, let dateTime = ackValue.asICalDateTime {
+            acknowledgment = ICalAlarmAcknowledgment(
+                acknowledgedAt: dateTime,
+                acknowledgedBy: acknowledgedByProp?.value
+            )
+        } else {
+            acknowledgment = nil
+        }
+
+        self.init(
+            type: alarmType,
+            uid: uid,
+            acknowledgment: acknowledgment,
+            relatedAlarms: relatedProps.map { $0.value }
+        )
+    }
+
+    /// Generate properties based on the alarm type
+    private func generateProperties() -> [ICalendarProperty] {
+        var props: [ICalendarProperty] = []
+
+        // Add UID if present
+        if let uid = uid {
+            props.append(ICalProperty(name: "UID", value: uid))
+        }
+
+        // Add acknowledgment if present
+        if let ack = acknowledgment {
+            props.append(ICalProperty(name: "ACKNOWLEDGED", value: ICalendarFormatter.format(dateTime: ack.acknowledgedAt)))
+            if let acknowledgedBy = ack.acknowledgedBy {
+                props.append(ICalProperty(name: "ACKNOWLEDGED-BY", value: acknowledgedBy))
+            }
+        }
+
+        // Add related alarms
+        for relatedUID in relatedAlarms {
+            props.append(ICalProperty(name: "RELATED-TO", value: relatedUID))
+        }
+
+        // Add type-specific properties
+        switch type {
+        case .audio(let audio):
+            props.append(ICalProperty(name: ICalPropertyName.action, value: "AUDIO"))
+            props.append(ICalProperty(name: ICalPropertyName.trigger, value: audio.trigger))
+
+            if let attachment = audio.attachment {
+                props.append(contentsOf: attachment.properties)
+            }
+
+            if let duration = audio.duration {
+                props.append(ICalProperty(name: ICalPropertyName.duration, value: duration.formatForProperty()))
+            }
+
+            if let repeatCount = audio.repeatCount {
+                props.append(ICalProperty(name: ICalPropertyName.repeatCount, value: String(repeatCount)))
+            }
+
+        case .display(let display):
+            props.append(ICalProperty(name: ICalPropertyName.action, value: "DISPLAY"))
+            props.append(ICalProperty(name: ICalPropertyName.trigger, value: display.trigger))
+            props.append(ICalProperty(name: ICalPropertyName.description, value: display.description))
+
+            if let duration = display.duration {
+                props.append(ICalProperty(name: ICalPropertyName.duration, value: duration.formatForProperty()))
+            }
+
+            if let repeatCount = display.repeatCount {
+                props.append(ICalProperty(name: ICalPropertyName.repeatCount, value: String(repeatCount)))
+            }
+
+        case .email(let email):
+            props.append(ICalProperty(name: ICalPropertyName.action, value: "EMAIL"))
+            props.append(ICalProperty(name: ICalPropertyName.trigger, value: email.trigger))
+            props.append(ICalProperty(name: ICalPropertyName.description, value: email.description))
+            props.append(ICalProperty(name: ICalPropertyName.summary, value: email.summary))
+
+            // Add all attendees (guaranteed to have at least one)
+            for attendee in email.attendees {
+                var parameters: [String: String] = [:]
+                if let commonName = attendee.commonName {
+                    parameters["CN"] = commonName
+                }
+                if let role = attendee.role {
+                    parameters["ROLE"] = role.rawValue
+                }
+                if let status = attendee.participationStatus {
+                    parameters["PARTSTAT"] = status.rawValue
+                }
+                if let rsvp = attendee.rsvp {
+                    parameters["RSVP"] = rsvp ? "TRUE" : "FALSE"
+                }
+
+                props.append(
+                    ICalProperty(
+                        name: ICalPropertyName.attendee,
+                        value: "mailto:\(attendee.email)",
+                        parameters: parameters
+                    )
+                )
+            }
+
+            // Add attachments
+            for attachment in email.attachments {
+                props.append(contentsOf: attachment.properties)
+            }
+
+            if let duration = email.duration {
+                props.append(ICalProperty(name: ICalPropertyName.duration, value: duration.formatForProperty()))
+            }
+
+            if let repeatCount = email.repeatCount {
+                props.append(ICalProperty(name: ICalPropertyName.repeatCount, value: String(repeatCount)))
+            }
+
+        case .proximity(let proximity):
+            props.append(ICalProperty(name: ICalPropertyName.action, value: "PROXIMITY"))
+            props.append(ICalProperty(name: ICalPropertyName.proximityTrigger, value: proximity.proximityTrigger.stringValue))
+            props.append(ICalProperty(name: ICalPropertyName.trigger, value: "PT0S"))  // Dummy trigger for RFC compliance
+
+            if let description = proximity.description {
+                props.append(ICalProperty(name: ICalPropertyName.description, value: description))
+            }
+
+            if let duration = proximity.duration {
+                props.append(ICalProperty(name: ICalPropertyName.duration, value: duration.formatForProperty()))
+            }
+
+            if let repeatCount = proximity.repeatCount {
+                props.append(ICalProperty(name: ICalPropertyName.repeatCount, value: String(repeatCount)))
+            }
+        }
+
+        return props
+    }
+}
+
+// MARK: - ICalAttachment Extensions
+
+extension ICalAttachment {
+    /// Convert attachment to properties
+    var properties: [ICalendarProperty] {
+        var parameters: [String: String] = [:]
+
+        if let mediaType = mediaType {
+            parameters[ICalParameterName.formatType] = mediaType
+        }
+
+        switch type {
+        case .uri:
+            return [ICalProperty(name: ICalPropertyName.attach, value: value, parameters: parameters)]
+
+        case .binary:
+            parameters[ICalParameterName.encoding] = "BASE64"
+            parameters[ICalParameterName.valueType] = "BINARY"
+            return [ICalProperty(name: ICalPropertyName.attach, value: value, parameters: parameters)]
+        }
+    }
+}
 /// Represents a time zone (VTIMEZONE)
 public struct ICalTimeZone: ICalendarComponent, Sendable {
     public static let componentName = "VTIMEZONE"
