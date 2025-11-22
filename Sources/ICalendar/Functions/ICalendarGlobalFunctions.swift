@@ -28,11 +28,6 @@ public struct CalendarStatistics: Sendable {
     }
 }
 
-// SerializationStatistics is defined in ICalendarSerializer.swift
-
-// MARK: - iCalendar Kit Version 2.0 API
-// Static namespace to replace the ICalendarClient API with cleaner, namespaced functions
-
 public enum ICalendarKit {
 
     // MARK: - Parsing Operations

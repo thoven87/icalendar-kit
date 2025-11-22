@@ -281,9 +281,6 @@ public struct ICalAdvancediTIP: Sendable {
 /// Manages complex iTIP workflows and scheduling operations
 public struct ICalAdvancediTIPManager: Sendable {
 
-    public init() {
-    }
-
     /// Create a delegation workflow
     public static func createDelegation(
         from delegator: String,
