@@ -161,129 +161,6 @@ extension Array where Element == ICalTodo {
 
 // MARK: - Calendar Builder
 
-/// Fluent interface for building calendars
-// Old-style ICalendarBuilder removed in favor of result builder pattern in Foundation/ICalendarBuilder.swift
-
-// MARK: - Event Builder
-
-/// Fluent interface for building events
-public struct ICalEventBuilder: Sendable {
-    private var event: ICalEvent
-
-    public init(summary: String, uid: String? = nil) {
-        self.event = ICalEvent(uid: uid ?? UUID().uuidString, summary: summary)
-        self.event.dateTimeStamp = ICalDateTime(date: Date())
-    }
-
-    public func description(_ description: String) -> ICalEventBuilder {
-        var builder = self
-        builder.event.description = description
-        return builder
-    }
-
-    public func location(_ location: String) -> ICalEventBuilder {
-        var builder = self
-        builder.event.location = location
-        return builder
-    }
-
-    public func startDate(_ date: Date, timeZone: TimeZone? = nil) -> ICalEventBuilder {
-        var builder = self
-        builder.event.dateTimeStart = ICalDateTime(date: date, timeZone: timeZone)
-        return builder
-    }
-
-    public func endDate(_ date: Date, timeZone: TimeZone? = nil) -> ICalEventBuilder {
-        var builder = self
-        builder.event.dateTimeEnd = ICalDateTime(date: date, timeZone: timeZone)
-        return builder
-    }
-
-    public func duration(_ duration: ICalDuration) -> ICalEventBuilder {
-        var builder = self
-        builder.event.duration = duration
-        return builder
-    }
-
-    public func allDay(_ date: Date) -> ICalEventBuilder {
-        var builder = self
-        builder.event.dateTimeStart = ICalDateTime(date: date, isDateOnly: true)
-        return builder
-    }
-
-    public func status(_ status: ICalEventStatus) -> ICalEventBuilder {
-        var builder = self
-        builder.event.status = status
-        return builder
-    }
-
-    public func transparency(_ transparency: ICalTransparency) -> ICalEventBuilder {
-        var builder = self
-        builder.event.transparency = transparency
-        return builder
-    }
-
-    public func classification(_ classification: ICalClassification) -> ICalEventBuilder {
-        var builder = self
-        builder.event.classification = classification
-        return builder
-    }
-
-    public func priority(_ priority: Int) -> ICalEventBuilder {
-        var builder = self
-        builder.event.priority = priority
-        return builder
-    }
-
-    public func organizer(_ organizer: ICalAttendee) -> ICalEventBuilder {
-        var builder = self
-        builder.event.organizer = organizer
-        return builder
-    }
-
-    public func attendee(_ attendee: ICalAttendee) -> ICalEventBuilder {
-        var builder = self
-        builder.event.attendees.append(attendee)
-        return builder
-    }
-
-    public func attendees(_ attendees: [ICalAttendee]) -> ICalEventBuilder {
-        var builder = self
-        builder.event.attendees = attendees
-        return builder
-    }
-
-    public func recurrence(_ rule: ICalRecurrenceRule) -> ICalEventBuilder {
-        var builder = self
-        builder.event.recurrenceRule = rule
-        return builder
-    }
-
-    public func alarm(_ alarm: ICalAlarm) -> ICalEventBuilder {
-        var builder = self
-        builder.event.addAlarm(alarm)
-        return builder
-    }
-
-    public func categories(_ categories: [String]) -> ICalEventBuilder {
-        var builder = self
-        builder.event.categories = categories
-        return builder
-    }
-
-    public func url(_ url: String) -> ICalEventBuilder {
-        var builder = self
-        builder.event.url = url
-        return builder
-    }
-
-    public func build() -> ICalEvent {
-        event
-    }
-}
-
-// MARK: - Todo Builder
-
 /// Fluent interface for building todos
 public struct ICalTodoBuilder: Sendable {
     private var todo: ICalTodo
@@ -375,11 +252,6 @@ public func iCalendar(productId: String = "-//ICalendar Kit//EN", @ICalendarComp
     return calendar
 }
 
-public func event(summary: String, uid: String? = nil, @ICalEventPropertyBuilder builder: (ICalEventBuilder) -> ICalEventBuilder) -> ICalEvent {
-    let eventBuilder = ICalEventBuilder(summary: summary, uid: uid)
-    return builder(eventBuilder).build()
-}
-
 public func todo(summary: String, uid: String? = nil, @ICalTodoPropertyBuilder builder: (ICalTodoBuilder) -> ICalTodoBuilder) -> ICalTodo {
     let todoBuilder = ICalTodoBuilder(summary: summary, uid: uid)
     return builder(todoBuilder).build()
@@ -420,13 +292,6 @@ public struct ICalendarComponentBuilder {
 
     public static func buildEither(second component: any ICalendarComponent) -> [any ICalendarComponent] {
         [component]
-    }
-}
-
-@resultBuilder
-public struct ICalEventPropertyBuilder {
-    public static func buildBlock(_ builder: ICalEventBuilder) -> ICalEventBuilder {
-        builder
     }
 }
 

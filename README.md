@@ -21,7 +21,7 @@ A comprehensive Swift 6 library for parsing and creating iCalendar (RFC 5545) ev
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/thoven87/icalendar-kit.git", from: "1.0.0")
+    .package(url: "https://github.com/thoven87/icalendar-kit.git", from: "2.0.0")
 ]
 ```
 
