@@ -192,6 +192,177 @@ public struct EventBuilder: Sendable, ICalendarBuildable {
         return builder
     }
 
+    /// Sets event transparency (whether it blocks calendar time)
+    public func transparency(_ transparency: ICalTransparency) -> EventBuilder {
+        var builder = self
+        builder.event.transparency = transparency
+        return builder
+    }
+
+    /// Sets event as transparent (available/free time - doesn't block other events)
+    public func transparent() -> EventBuilder {
+        transparency(.transparent)
+    }
+
+    /// Sets event as opaque (busy/blocked time - blocks other events)
+    public func opaque() -> EventBuilder {
+        transparency(.opaque)
+    }
+
+    /// Sets the event sequence number for versioning
+    public func sequence(_ sequence: Int) -> EventBuilder {
+        var builder = self
+        builder.event.sequence = sequence
+        return builder
+    }
+
+    /// Sets geographic coordinates for the event location
+    public func geoCoordinates(latitude: Double, longitude: Double) -> EventBuilder {
+        var builder = self
+        builder.event.geo = ICalGeoCoordinate(latitude: latitude, longitude: longitude)
+        return builder
+    }
+
+    /// Sets the event color for calendar theming
+    public func color(_ color: String) -> EventBuilder {
+        var builder = self
+        builder.event.color = color
+        return builder
+    }
+
+    /// Sets the event color using hex format
+    public func color(hex: String) -> EventBuilder {
+        let cleanHex = hex.hasPrefix("#") ? hex : "#\(hex)"
+        return color(cleanHex)
+    }
+
+    /// Adds a conference/meeting URL (RFC 7986)
+    public func conference(_ conferenceUrl: String) -> EventBuilder {
+        var builder = self
+        builder.event.conferences.append(conferenceUrl)
+        return builder
+    }
+
+    /// Adds an image URL to the event (RFC 7986)
+    public func image(_ imageUrl: String) -> EventBuilder {
+        var builder = self
+        builder.event.image = imageUrl
+        return builder
+    }
+
+    /// Adds multiple image URLs to the event
+    public func addImage(_ imageUrl: String) -> EventBuilder {
+        var builder = self
+        builder.event.images.append(imageUrl)
+        return builder
+    }
+
+    /// Adds a file attachment to the event
+    public func attachment(_ url: String, mediaType: String? = nil) -> EventBuilder {
+        var builder = self
+        let attachment = ICalAttachment(uri: url, mediaType: mediaType)
+        builder.event.attachments.append(attachment)
+        return builder
+    }
+
+    // MARK: - RFC 9073 Components
+
+    /// Adds a venue component to the event (RFC 9073)
+    public func venue(name: String, description: String? = nil, address: String? = nil) -> EventBuilder {
+        var builder = self
+        var venue = ICalVenue()
+        venue.name = name
+        venue.description = description
+        venue.address = address
+        builder.event.venues.append(venue)
+        return builder
+    }
+
+    /// Adds a structured venue with detailed address information
+    public func venue(
+        name: String,
+        description: String? = nil,
+        streetAddress: String? = nil,
+        locality: String? = nil,
+        region: String? = nil,
+        postalCode: String? = nil,
+        country: String? = nil
+    ) -> EventBuilder {
+        var builder = self
+        var venue = ICalVenue()
+        venue.name = name
+        venue.description = description
+        venue.streetAddress = streetAddress
+        venue.locality = locality
+        venue.region = region
+        venue.postalCode = postalCode
+        venue.country = country
+        builder.event.venues.append(venue)
+        return builder
+    }
+
+    /// Adds a custom venue component
+    public func addVenue(_ venue: ICalVenue) -> EventBuilder {
+        var builder = self
+        builder.event.venues.append(venue)
+        return builder
+    }
+
+    /// Adds a location component to the event (RFC 9073)
+    public func locationComponent(
+        name: String,
+        description: String? = nil,
+        latitude: Double? = nil,
+        longitude: Double? = nil,
+        types: [String] = []
+    ) -> EventBuilder {
+        var builder = self
+        var location = ICalLocationComponent()
+        location.name = name
+        location.description = description
+        if let lat = latitude, let lng = longitude {
+            location.geo = ICalGeoCoordinate(latitude: lat, longitude: lng)
+        }
+        location.locationTypes = types
+        builder.event.locations.append(location)
+        return builder
+    }
+
+    /// Adds a custom location component
+    public func addLocationComponent(_ location: ICalLocationComponent) -> EventBuilder {
+        var builder = self
+        builder.event.locations.append(location)
+        return builder
+    }
+
+    /// Adds a resource component to the event (RFC 9073)
+    public func resource(
+        name: String,
+        description: String? = nil,
+        type: String? = nil,
+        capacity: Int? = nil,
+        features: [String] = [],
+        categories: [String] = []
+    ) -> EventBuilder {
+        var builder = self
+        var resource = ICalResourceComponent()
+        resource.name = name
+        resource.description = description
+        resource.resourceType = type
+        resource.capacity = capacity
+        resource.features = features
+        resource.categories = categories
+        builder.event.resources.append(resource)
+        return builder
+    }
+
+    /// Adds a custom resource component
+    public func addResource(_ resource: ICalResourceComponent) -> EventBuilder {
+        var builder = self
+        builder.event.resources.append(resource)
+        return builder
+    }
+
     /// Sets the organizer of the event
     public func organizer(email: String, name: String? = nil) -> EventBuilder {
         var builder = self

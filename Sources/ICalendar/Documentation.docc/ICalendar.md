@@ -4,7 +4,9 @@ A comprehensive Swift library for parsing, creating, and managing iCalendar (RFC
 
 ## Overview
 
-iCalendar Kit is a modern, Swift 6-compliant library that provides complete support for the iCalendar specification and its extensions. Built for enterprise applications, it offers robust timezone handling, calendar feed generation, email integration, and comprehensive RFC compliance.
+iCalendar Kit provides a comprehensive Swift implementation for creating, parsing, and managing iCalendar (RFC 5545) events, todos, journals, and related components. This library is designed for enterprise applications, calendar services, and any Swift application requiring robust calendar functionality.
+
+With the modern EventBuilder API, you can create feature-complete calendar events using a clean, type-safe interface that supports all essential iCalendar properties including transparency, versioning, location services, theming, and modern meeting features.
 
 ### Key Features
 
@@ -220,44 +222,462 @@ let calendar = ICalendar.calendar(productId: "-//Global Corp//EN") {
 }
 ```
 
-### Using EventBuilder for Complex Events
+### Modern EventBuilder API
 
-Create multiple events with rich properties using the EventBuilder result builder:
+The EventBuilder provides a comprehensive, type-safe API for creating modern iCalendar events with all RFC-compliant properties:
+
+#### Complete Property Support
 
 ```swift
-// Create events using EventBuilder
-let events = EventBuilder {
-    EventBuilder(summary: "Daily Standup")
-        .startDate(Date())
-        .duration(ICalendarFactory.createDuration(minutes: 30))
-        .location("Virtual - Zoom")
-        .description("Daily team standup meeting")
-        .recurrence(ICalendarFactory.createDailyRecurrence(count: 30))
-        .addAlarm(ICalendarFactory.createDisplayAlarm(description: "Meeting in 15 minutes", triggerMinutesBefore: 15))
+let event = EventBuilder(summary: "Company Retreat 2024")
+    .description("Annual team building and strategic planning")
+    .location("Napa Valley Resort")
     
-    EventBuilder(summary: "Project Planning")
-        .startDate(Calendar.current.date(byAdding: .day, value: 1, to: Date())!)
-        .duration(ICalendarFactory.createDuration(hours: 2))
-        .location("Conference Room B")
-        .attendees([
-            ICalendarFactory.createAttendee(email: "alice@company.com", name: "Alice", role: .requiredParticipant),
-            ICalendarFactory.createAttendee(email: "bob@company.com", name: "Bob", role: .optionalParticipant)
-        ])
-        .organizer(ICalendarFactory.createOrganizer(email: "manager@company.com", name: "Team Manager"))
-}
+    // Scheduling
+    .starts(at: Date(), timeZone: .current)
+    .duration(28800) // 8 hours
+    
+    // Status and Priority
+    .confirmed()
+    .highPriority()
+    .publicEvent()
+    
+    // Modern Properties (NEW!)
+    .transparent()              // Shows as "Available" 
+    .sequence(1)               // Event version for updates
+    .geoCoordinates(latitude: 38.2975, longitude: -122.2869)
+    .color(hex: "E74C3C")      // Visual theming
+    .conference("https://zoom.us/retreat-2024")
+    .image("https://company.com/retreat-banner.jpg")
+    .attachment("agenda.pdf", mediaType: "application/pdf")
+    
+    // Attendees and Organization
+    .organizer(email: "hr@company.com", name: "HR Team")
+    .addAttendee(email: "ceo@company.com", name: "CEO", 
+                role: .chair, status: .accepted)
+    .categories("Company", "Retreat", "Annual")
+    
+    // Alarms and Reminders
+    .addAlarm(.display(description: "Retreat tomorrow!"), 
+              trigger: .minutesBefore(1440))
+    .buildEvent()
+```
 
-// Create calendar with branded configuration
-let calendar = ICalendar.calendar(productId: "-//My Company//Project Calendar//EN") {
-    BrandedCalendar(
-        organizationName: "My Company",
-        organizationURL: "https://company.com",
-        brandColor: "#0066CC"
+#### Availability and Transparency
+
+Control how events appear in calendar applications:
+
+```swift
+// Available time - others can schedule over this
+let officeHours = EventBuilder(summary: "Office Hours")
+    .transparent()  // Shows as "Available"
+    .buildEvent()
+
+// Busy time - blocks calendar
+let focusTime = EventBuilder(summary: "Deep Work")
+    .opaque()      // Shows as "Busy"
+    .buildEvent()
+```
+
+#### Event Versioning and Updates
+
+Use sequence numbers for proper event updates:
+
+```swift
+// Original event
+let meeting = EventBuilder(summary: "Team Meeting")
+    .sequence(0)  // Initial version
+    .buildEvent()
+
+// Updated event
+let updatedMeeting = EventBuilder(summary: "Team Meeting - UPDATED")
+    .sequence(1)  // Version 1
+    .buildEvent()
+```
+
+#### Location and Geographic Data
+
+Add GPS coordinates for location services:
+
+```swift
+let conference = EventBuilder(summary: "Tech Conference")
+    .location("Moscone Center")
+    .geoCoordinates(latitude: 37.7840, longitude: -122.4014)
+    .buildEvent()
+```
+
+#### Visual Theming and Branding
+
+Add colors and imagery to events:
+
+```swift
+let brandedEvent = EventBuilder(summary: "Company All-Hands")
+    .color("red")                    // Named color
+    .color(hex: "3498DB")           // Hex color
+    .image("https://company.com/banner.jpg")
+    .buildEvent()
+```
+
+#### Modern Meeting Features
+
+RFC 7986 compliant video meetings and file attachments:
+
+```swift
+let modernMeeting = EventBuilder(summary: "Product Review")
+    .conference("https://teams.microsoft.com/meet/abc123")
+    .attachment("spec.pdf", mediaType: "application/pdf")
+    .attachment("https://github.com/project/feature")
+    .buildEvent()
+```
+
+#### Complete EventBuilder Property Reference
+
+| Category | Properties | Description |
+|----------|------------|-------------|
+| **Scheduling** | `starts()`, `ends()`, `duration()`, `allDay()` | Event timing |
+| **Status** | `confirmed()`, `tentative()`, `cancelled()` | Event status |
+| **Priority** | `priority()`, `highPriority()`, `normalPriority()`, `lowPriority()` | Event importance |
+| **Classification** | `publicEvent()`, `privateEvent()`, `confidential()` | Access control |
+| **Availability** | `transparent()`, `opaque()`, `transparency()` | Calendar blocking |
+| **Versioning** | `sequence()` | Event update tracking |
+| **Location** | `location()`, `geoCoordinates()` | Physical location |
+| **Visual** | `color()`, `color(hex:)`, `image()`, `addImage()` | Theming and branding |
+| **Modern** | `conference()`, `attachment()` | Video calls and files |
+| **People** | `organizer()`, `addAttendee()`, `addAttendees()` | Meeting participants |
+| **Content** | `description()`, `htmlDescription()`, `categories()`, `url()` | Event information |
+| **Recurrence** | `repeats*()` methods, `except()` | Recurring events |
+| **Alarms** | `addAlarm()`, `addAlarms()`, `reminderBefore()` | Notifications |
+| **Timestamps** | `created()`, `createdNow()`, `lastModifiedNow()` | Audit trail |
+| **Advanced** | `customProperty()`, `modify()` | Power user features |
+| **RFC 9073** | `venue()`, `locationComponent()`, `resource()` | Structured venue/resource data |
+
+### Real-World EventBuilder Examples
+
+#### Corporate Meeting with All Features
+
+```swift
+let corporateMeeting = EventBuilder(summary: "Q4 Board Meeting")
+    .description("Quarterly board review with financial presentations")
+    .location("Executive Conference Room")
+    .starts(at: Date().addingTimeInterval(86400), timeZone: .current)
+    .duration(7200) // 2 hours
+    
+    // Status and importance
+    .confirmed()
+    .highPriority()
+    .confidential()
+    
+    // Modern features
+    .sequence(0)    // Initial version
+    .opaque()       // Blocks calendar time
+    .color(hex: "8B0000") // Dark red for executive meetings
+    .geoCoordinates(latitude: 40.7589, longitude: -73.9851)
+    .conference("https://zoom.us/board-meeting")
+    .attachment("financial-report.pdf", mediaType: "application/pdf")
+    .image("https://company.com/board-banner.jpg")
+    
+    // Attendees
+    .organizer(email: "board@company.com", name: "Board Secretary")
+    .addAttendee(email: "ceo@company.com", name: "CEO", 
+                role: .chair, status: .accepted)
+    .addAttendee(email: "cfo@company.com", name: "CFO", 
+                role: .requiredParticipant, rsvp: true)
+    
+    // Categories and alarms
+    .categories("Executive", "Board", "Confidential")
+    .addAlarm(.email(
+        description: "Board meeting tomorrow - please review materials",
+        summary: "Board Meeting Reminder",
+        to: ICalAttendee(email: "ceo@company.com", commonName: "CEO")
+    ), trigger: .minutesBefore(1440)) // 24 hours
+    .addAlarm(.display(description: "Board meeting in 30 minutes"), 
+              trigger: .minutesBefore(30))
+    
+    .buildEvent()
+```
+
+#### Team Event with Recurrence
+
+```swift
+let teamStandup = EventBuilder(summary: "Daily Team Standup")
+    .description("Quick team sync and blocker discussion")
+    .location("Team Room / Virtual")
+    .starts(at: nextMondayAt9AM(), timeZone: .current)
+    .duration(900) // 15 minutes
+    
+    // Make it available time (others can schedule over if needed)
+    .transparent()
+    .sequence(0)
+    .color("blue")
+    .conference("https://meet.google.com/daily-standup")
+    
+    // Team coordination
+    .organizer(email: "lead@team.com", name: "Team Lead")
+    .addAttendee(email: "dev1@team.com", name: "Developer 1")
+    .addAttendee(email: "dev2@team.com", name: "Developer 2")
+    .categories("Team", "Standup", "Daily")
+    
+    // Recurring weekdays
+    .repeatsWeekly(every: 1, on: [.monday, .tuesday, .wednesday, .thursday, .friday])
+    .reminderBefore(minutes: 5)
+    
+    .buildEvent()
+```
+
+#### Client Event with Location Services
+
+```swift
+let clientMeeting = EventBuilder(summary: "Client Presentation")
+    .description("Product demo and contract discussion")
+    .location("Client Office - Downtown")
+    .starts(at: Date().addingTimeInterval(3600), timeZone: .current)
+    .duration(5400) // 90 minutes
+    
+    // Business critical - blocks time
+    .confirmed()
+    .highPriority()
+    .opaque()
+    .sequence(0)
+    .color(hex: "228B22") // Green for client meetings
+    
+    // GPS for navigation
+    .geoCoordinates(latitude: 37.7749, longitude: -122.4194)
+    .attachment("proposal.pdf", mediaType: "application/pdf")
+    .attachment("demo-slides.pptx", mediaType: "application/vnd.ms-powerpoint")
+    
+    // External participants
+    .organizer(email: "sales@company.com", name: "Sales Lead")
+    .addAttendee(email: "client@external.com", name: "Client Contact",
+                role: .requiredParticipant, userType: .individual)
+    .categories("Client", "Sales", "External")
+    
+    // Progressive reminders
+    .addAlarm(.display(description: "Client meeting in 2 hours - prepare materials"), 
+              trigger: .minutesBefore(120))
+    .addAlarm(.display(description: "Client meeting in 30 minutes"), 
+              trigger: .minutesBefore(30))
+    
+    .buildEvent()
+```
+
+#### Enterprise Event with RFC 9073 Components
+
+```swift
+let conferenceEvent = EventBuilder(summary: "Tech Conference 2024")
+    .description("Annual technology conference with industry leaders")
+    .starts(at: Date().addingTimeInterval(86400), timeZone: .current)
+    .duration(28800) // 8 hours
+    
+    // Basic event properties
+    .confirmed()
+    .publicEvent()
+    .color(hex: "2E86AB")
+    .categories("Conference", "Technology", "Networking")
+    
+    // RFC 9073: Structured venue information
+    .venue(
+        name: "Grand Convention Center",
+        description: "Premier conference facility with state-of-the-art technology",
+        streetAddress: "123 Convention Boulevard",
+        locality: "San Francisco",
+        region: "CA",
+        postalCode: "94102",
+        country: "USA"
     )
     
-    for event in events {
-        event
-    }
+    // RFC 9073: Enhanced location components
+    .locationComponent(
+        name: "Main Auditorium",
+        description: "Primary presentation hall with 2000-person capacity",
+        latitude: 37.7749,
+        longitude: -122.4194,
+        types: ["AUDITORIUM", "PRESENTATION"]
+    )
+    .locationComponent(
+        name: "Exhibition Hall B",
+        description: "Vendor booths and networking area",
+        latitude: 37.7750,
+        longitude: -122.4195,
+        types: ["EXHIBITION", "NETWORKING"]
+    )
+    
+    // RFC 9073: Resource components for equipment and facilities
+    .resource(
+        name: "4K Projection System",
+        description: "High-resolution presentation system with wireless connectivity",
+        type: "AUDIO_VISUAL",
+        capacity: 2000,
+        features: ["4K", "WIRELESS", "BACKUP_SYSTEM"],
+        categories: ["Technology", "Presentation"]
+    )
+    .resource(
+        name: "Live Streaming Equipment",
+        description: "Professional broadcasting setup for remote attendees",
+        type: "BROADCAST",
+        features: ["MULTI_CAMERA", "AUDIO_MIXING", "CLOUD_RECORDING"],
+        categories: ["Technology", "Remote"]
+    )
+    
+    // Modern meeting features
+    .conference("https://live.conference2024.com/main-stream")
+    .attachment("conference-program.pdf", mediaType: "application/pdf")
+    .attachment("speaker-bios.pdf", mediaType: "application/pdf")
+    
+    .buildEvent()
+```
+
+### Helper Functions
+
+```swift
+// Helper function for examples
+private func nextMondayAt9AM() -> Date {
+    let calendar = Calendar.current
+    let now = Date()
+    let nextMonday = calendar.nextDate(after: now, matching: DateComponents(weekday: 2), matchingPolicy: .nextTime)!
+    return calendar.date(bySettingHour: 9, minute: 0, second: 0, of: nextMonday)!
 }
+```
+
+### EventBuilder to iCalendar Property Mapping
+
+EventBuilder methods generate standard iCalendar properties as specified by RFCs:
+
+| EventBuilder Method | iCalendar Property | RFC Standard | Example Output |
+|---------------------|-------------------|--------------|----------------|
+| `.transparent()` | `TRANSP:TRANSPARENT` | RFC 5545 | Shows as available time |
+| `.opaque()` | `TRANSP:OPAQUE` | RFC 5545 | Shows as busy time |
+| `.sequence(1)` | `SEQUENCE:1` | RFC 5545 | Event version tracking |
+| `.geoCoordinates(lat, lng)` | `GEO:37.7749;-122.4194` | RFC 5545 | GPS coordinates |
+| `.color(hex: "FF5733")` | `COLOR:#FF5733` | RFC 7986 | Calendar theming |
+| `.conference(url)` | `CONFERENCE:https://...` | RFC 7986 | Video meeting links |
+| `.image(url)` | `IMAGE:https://...` | RFC 7986 | Event imagery |
+| `.attachment(url, type)` | `ATTACH;FMTTYPE=pdf:https://...` | RFC 5545 | File attachments |
+| `.confirmed()` | `STATUS:CONFIRMED` | RFC 5545 | Event confirmation |
+| `.highPriority()` | `PRIORITY:1` | RFC 5545 | High importance |
+| `.publicEvent()` | `CLASS:PUBLIC` | RFC 5545 | Access classification |
+| `.organizer(email, name)` | `ORGANIZER;CN=Name:mailto:email` | RFC 5545 | Meeting organizer |
+| `.categories("Work", "Meeting")` | `CATEGORIES:Work,Meeting` | RFC 5545 | Event categorization |
+| `.venue(name, address)` | `VVENUE` component | RFC 9073 | Structured venue data |
+| `.locationComponent(name, geo)` | `VLOCATION` component | RFC 9073 | Enhanced location details |
+| `.resource(name, type, features)` | `VRESOURCE` component | RFC 9073 | Equipment and facilities |
+
+#### Generated iCalendar Example
+
+```swift
+let event = EventBuilder(summary: "Modern Meeting")
+    .transparent()
+    .sequence(1)
+    .color(hex: "3498DB")
+    .conference("https://zoom.us/j/123")
+    .attachment("agenda.pdf", mediaType: "application/pdf")
+    .buildEvent()
+```
+
+### Geographic Coordinate Standardization
+
+**Important Note**: This library has standardized on `ICalGeoCoordinate` for all geographic coordinate handling. Previous versions had two different types (`ICalGeo` and `ICalGeoCoordinate`), but we've unified on `ICalGeoCoordinate` for consistency and better functionality.
+
+**Key Benefits of ICalGeoCoordinate:**
+- ✅ **String conversion**: Built-in `stringValue` property and `init?(from string:)` parsing
+- ✅ **RFC compliance**: Proper "latitude;longitude" format serialization  
+- ✅ **Error handling**: Safe parsing with optional initialization
+- ✅ **Consistency**: Used across all components (events, venues, locations, etc.)
+
+**Usage Example:**
+```swift
+// All geographic coordinates use ICalGeoCoordinate
+let event = EventBuilder(summary: "Global Meeting")
+    .geoCoordinates(latitude: 37.7749, longitude: -122.4194)  // Main event location
+    .venue(name: "Conference Center", ...)                     // Venue coordinates
+    .locationComponent(name: "Room A", latitude: 37.7750, longitude: -122.4195)  // Room coordinates
+    .buildEvent()
+
+// All generate consistent GEO:37.774900;-122.419400 format
+```
+
+**Generated iCalendar Output:**
+```
+BEGIN:VEVENT
+UID:unique-event-id
+DTSTAMP:20240101T120000Z
+SUMMARY:Modern Meeting
+TRANSP:TRANSPARENT
+SEQUENCE:1
+COLOR:#3498DB
+CONFERENCE:https://zoom.us/j/123
+ATTACH;FMTTYPE=application/pdf:agenda.pdf
+END:VEVENT
+```
+
+**Generated RFC 9073 Output:**
+```
+BEGIN:VVENUE
+NAME:Conference Center
+DESCRIPTION:Main conference venue
+STREET-ADDRESS:123 Main Street
+LOCALITY:San Francisco
+REGION:CA
+COUNTRY:USA
+POSTALCODE:94102
+GEO:37.774900;-122.419400
+END:VVENUE
+
+BEGIN:VLOCATION
+NAME:Main Auditorium
+DESCRIPTION:Primary presentation hall
+GEO:37.774900;-122.419400
+LOCATION-TYPE:AUDITORIUM,PRESENTATION
+END:VLOCATION
+
+BEGIN:VRESOURCE
+NAME:4K Projection System
+DESCRIPTION:Professional AV equipment
+RESOURCE-TYPE:AUDIO_VISUAL
+CAPACITY:2000
+FEATURES:4K,WIRELESS,BACKUP_SYSTEM
+CATEGORIES:Technology,Presentation
+END:VRESOURCE
+```
+
+## EventBuilder Complete Feature Overview
+
+The EventBuilder API is the primary interface for creating modern, RFC-compliant calendar events. It provides comprehensive support for all standard and extended iCalendar properties.
+
+### Feature Comparison
+
+| Feature Category | EventBuilder Support | RFC Standard | Generated Property |
+|-----------------|---------------------|--------------|-------------------|
+| **Basic Scheduling** | ✅ Complete | RFC 5545 | DTSTART, DTEND, DURATION |
+| **Event Status** | ✅ Complete | RFC 5545 | STATUS, PRIORITY, CLASS |
+| **Availability** | ✅ Complete | RFC 5545 | TRANSP (NEW!) |
+| **Versioning** | ✅ Complete | RFC 5545 | SEQUENCE (NEW!) |
+| **Location Services** | ✅ Complete | RFC 5545 | LOCATION, GEO (NEW!) |
+| **Visual Theming** | ✅ Complete | RFC 7986 | COLOR, IMAGE (NEW!) |
+| **Modern Meetings** | ✅ Complete | RFC 7986 | CONFERENCE, ATTACH (NEW!) |
+| **RFC 9073 Components** | ✅ Complete | RFC 9073 | VVENUE, VLOCATION, VRESOURCE (NEW!) |
+| **Participants** | ✅ Complete | RFC 5545 | ORGANIZER, ATTENDEE |
+| **Recurrence** | ✅ Complete | RFC 5545 | RRULE, EXDATE |
+| **Alarms** | ✅ Complete | RFC 5545 | VALARM components |
+
+### Migration from Manual Properties
+
+**Before (Manual Property Setting):**
+```swift
+// Old approach - error prone and verbose
+var event = ICalEvent(summary: "Meeting")
+event.properties.append(ICalProperty(name: "TRANSP", value: "TRANSPARENT"))
+event.properties.append(ICalProperty(name: "GEO", value: "37.7749;-122.4194"))
+event.properties.append(ICalProperty(name: "COLOR", value: "#FF5733"))
+```
+
+**After (EventBuilder API):**
+```swift
+// New approach - type-safe and intuitive
+let event = EventBuilder(summary: "Meeting")
+    .transparent()
+    .geoCoordinates(latitude: 37.7749, longitude: -122.4194)
+    .color(hex: "FF5733")
+    .buildEvent()
 ```
 
 ### Parsing and Working with External Calendars

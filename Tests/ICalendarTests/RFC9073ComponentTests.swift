@@ -20,7 +20,7 @@ struct RFC9073ComponentTests {
         venue.region = "CA"
         venue.country = "USA"
         venue.postalCode = "94102"
-        venue.geo = ICalGeo(latitude: 37.7749, longitude: -122.4194)
+        venue.geo = ICalGeoCoordinate(latitude: 37.7749, longitude: -122.4194)
         venue.locationTypes = ["VENUE", "CONFERENCE"]
         venue.categories = ["Technology", "Conference"]
 
