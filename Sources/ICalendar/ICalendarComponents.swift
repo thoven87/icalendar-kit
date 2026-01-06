@@ -1120,19 +1120,13 @@ public struct ICalVenue: ICalendarComponent, Sendable {
     }
 
     /// Venue geographic coordinates
-    public var geo: ICalGeo? {
+    public var geo: ICalGeoCoordinate? {
         get {
             guard let value = getPropertyValue(ICalPropertyName.geo) else { return nil }
-            let coords = value.split(separator: ";").compactMap(Double.init)
-            guard coords.count == 2 else { return nil }
-            return ICalGeo(latitude: coords[0], longitude: coords[1])
+            return ICalGeoCoordinate(from: value)
         }
         set {
-            if let geo = newValue {
-                setPropertyValue(ICalPropertyName.geo, value: "\(geo.latitude);\(geo.longitude)")
-            } else {
-                setPropertyValue(ICalPropertyName.geo, value: nil)
-            }
+            setPropertyValue(ICalPropertyName.geo, value: newValue?.stringValue)
         }
     }
 
@@ -1251,19 +1245,13 @@ public struct ICalLocationComponent: ICalendarComponent, Sendable {
     }
 
     /// Location geographic coordinates
-    public var geo: ICalGeo? {
+    public var geo: ICalGeoCoordinate? {
         get {
             guard let value = getPropertyValue(ICalPropertyName.geo) else { return nil }
-            let coords = value.split(separator: ";").compactMap(Double.init)
-            guard coords.count == 2 else { return nil }
-            return ICalGeo(latitude: coords[0], longitude: coords[1])
+            return ICalGeoCoordinate(from: value)
         }
         set {
-            if let geo = newValue {
-                setPropertyValue(ICalPropertyName.geo, value: "\(geo.latitude);\(geo.longitude)")
-            } else {
-                setPropertyValue(ICalPropertyName.geo, value: nil)
-            }
+            setPropertyValue(ICalPropertyName.geo, value: newValue?.stringValue)
         }
     }
 
@@ -1686,19 +1674,13 @@ public struct ICalParticipant: ICalendarComponent, Sendable {
     }
 
     /// Geographic position
-    public var geo: ICalGeo? {
+    public var geo: ICalGeoCoordinate? {
         get {
             guard let value = getPropertyValue("GEO") else { return nil }
-            let components = value.split(separator: ";").compactMap(Double.init)
-            guard components.count == 2 else { return nil }
-            return ICalGeo(latitude: components[0], longitude: components[1])
+            return ICalGeoCoordinate(from: value)
         }
         set {
-            if let geo = newValue {
-                setPropertyValue("GEO", value: "\(geo.latitude);\(geo.longitude)")
-            } else {
-                setPropertyValue("GEO", value: nil)
-            }
+            setPropertyValue("GEO", value: newValue?.stringValue)
         }
     }
 
@@ -1826,17 +1808,6 @@ public enum ICalParticipantType: String, CaseIterable, Sendable {
     case planner_contact = "PLANNER-CONTACT"
     case performer = "PERFORMER"
     case speaker = "SPEAKER"
-}
-
-/// Geographic position structure
-public struct ICalGeo: Equatable, Hashable, Codable, Sendable {
-    public let latitude: Double
-    public let longitude: Double
-
-    public init(latitude: Double, longitude: Double) {
-        self.latitude = latitude
-        self.longitude = longitude
-    }
 }
 
 // MARK: - Component Extensions for Property Access
