@@ -1852,12 +1852,24 @@ extension ICalendarComponent {
 
         guard let value = value else { return }
 
-        // Create property with timezone parameter if needed
+        // Create property with appropriate parameters
         var parameters: [String: String] = [:]
-        if let timeZone = value.timeZone,
-            timeZone.identifier != "UTC" && timeZone.identifier != "GMT"
-        {
-            parameters["TZID"] = timeZone.identifier
+
+        if value.isDateOnly {
+            // For date-only events (all-day events), use VALUE=DATE and no timezone
+            // RFC 5545: All-day events must use VALUE=DATE format, e.g., DTSTART;VALUE=DATE:20250715
+            parameters["VALUE"] = "DATE"
+        } else {
+            // For timed events, add timezone parameter if needed
+            // RFC 5545: UTC and GMT times use 'Z' suffix (handled by formatter), not TZID parameter
+            // - UTC/GMT: DTSTART:20260106T143000Z (no TZID, formatter adds Z)
+            // - Regular timezones: DTSTART;TZID=America/New_York:20260106T143000 (with TZID)
+            // - Floating time: DTSTART:20260106T143000 (no TZID, no Z)
+            if let timeZone = value.timeZone,
+                timeZone.identifier != "UTC" && timeZone.identifier != "GMT"
+            {
+                parameters["TZID"] = timeZone.identifier
+            }
         }
 
         let property = ICalProperty(
