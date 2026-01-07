@@ -62,8 +62,11 @@ public final class TimeZoneRegistry: Sendable {
         let currentDate = Date()
 
         // Check if timezone observes DST by looking at different times of year
-        let winterDate = Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 15))!
-        let summerDate = Calendar.current.date(from: DateComponents(year: 2024, month: 7, day: 15))!
+        // Use UTC calendar for server consistency
+        var utcCalendar = Calendar(identifier: .gregorian)
+        utcCalendar.timeZone = TimeZone(identifier: "UTC")!
+        let winterDate = utcCalendar.date(from: DateComponents(year: 2024, month: 1, day: 15))!
+        let summerDate = utcCalendar.date(from: DateComponents(year: 2024, month: 7, day: 15))!
 
         let winterOffset = timeZone.secondsFromGMT(for: winterDate)
         let summerOffset = timeZone.secondsFromGMT(for: summerDate)
@@ -109,35 +112,93 @@ public final class TimeZoneRegistry: Sendable {
     }
 
     private func createDTStart(for timeZone: TimeZone, isStandard: Bool) -> ICalDateTime {
-        // Create a reasonable DTSTART for the timezone component
-        // Use historical dates that are likely to have correct transitions
-        let year = 1970
+        // Find the actual DST transition date for this timezone
+        let transitionDate = findDSTTransition(for: timeZone, isStandard: isStandard)
 
-        // Use simple fixed dates for transitions - this is what many implementations do
-        let month = isStandard ? 11 : 3  // November for standard, March for daylight
-        let day = isStandard ? 1 : 14  // Simple fixed days
+        // Return as floating time for VTIMEZONE DTSTART (no timezone, no Z suffix)
+        // The transition date is already created at 2:00 AM UTC for consistency
+        return ICalDateTime(
+            date: transitionDate,
+            timeZone: nil,
+            isDateOnly: false
+        )
+    }
 
-        // Create components in the target timezone to get correct wall clock time
-        let dateComponents = DateComponents(
-            year: year,
-            month: month,
-            day: day,
-            hour: 2,  // 2 AM is standard for DST transitions
+    /// Find the actual DST transition date for a timezone
+    private func findDSTTransition(for timeZone: TimeZone, isStandard: Bool) -> Date {
+
+        // Start with a base year - use 1970 as it's commonly used for VTIMEZONE
+        let baseYear = 1970
+
+        // Use UTC calendar for server consistency - never depend on system timezone
+        var utcCalendar = Calendar(identifier: .gregorian)
+        utcCalendar.timeZone = TimeZone(identifier: "UTC")!
+
+        // For the given timezone, find the transition dates in the base year
+        let startOfYear = utcCalendar.date(from: DateComponents(year: baseYear, month: 1, day: 1))!
+        let endOfYear = utcCalendar.date(from: DateComponents(year: baseYear + 1, month: 1, day: 1))!
+
+        // Get all DST transitions for this year
+        var currentDate = startOfYear
+        var springTransition: Date?  // Standard -> Daylight
+        var fallTransition: Date?  // Daylight -> Standard
+
+        while currentDate < endOfYear {
+            let isDSTNow = timeZone.isDaylightSavingTime(for: currentDate)
+            let nextDay = utcCalendar.date(byAdding: .day, value: 1, to: currentDate)!
+            let isDSTNext = timeZone.isDaylightSavingTime(for: nextDay)
+
+            // If DST status changes, we found a transition
+            if isDSTNow != isDSTNext {
+                // Create transition date at 2:00 AM UTC - this ensures consistent
+                // DTSTART times regardless of server timezone
+                let components = utcCalendar.dateComponents([.year, .month, .day], from: currentDate)
+                let transition = utcCalendar.date(
+                    from: DateComponents(
+                        year: components.year,
+                        month: components.month,
+                        day: components.day,
+                        hour: 2,
+                        minute: 0,
+                        second: 0
+                    )
+                )!
+
+                if !isDSTNow && isDSTNext {
+                    // Spring forward: Standard -> Daylight
+                    springTransition = transition
+                } else if isDSTNow && !isDSTNext {
+                    // Fall back: Daylight -> Standard
+                    fallTransition = transition
+                }
+            }
+            currentDate = nextDay
+        }
+
+        // Return the appropriate transition
+        if isStandard {
+            // For STANDARD component, use fall transition (when standard time starts)
+            if let fallTransition = fallTransition {
+                return fallTransition
+            }
+        } else {
+            // For DAYLIGHT component, use spring transition (when daylight time starts)
+            if let springTransition = springTransition {
+                return springTransition
+            }
+        }
+
+        // Fallback to reasonable defaults if no transitions found
+        let fallbackComponents = DateComponents(
+            year: baseYear,
+            month: isStandard ? 10 : 4,  // October for standard, April for daylight
+            day: isStandard ? 25 : 26,  // Reasonable defaults based on 1970 data
+            hour: 2,
             minute: 0,
             second: 0
         )
 
-        // Use calendar configured for the target timezone to get correct wall time
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = timeZone
-        let date = calendar.date(from: dateComponents) ?? Date(timeIntervalSince1970: 0)
-
-        // Return as floating time for VTIMEZONE DTSTART (no timezone, no Z suffix)
-        return ICalDateTime(
-            date: date,
-            timeZone: nil,
-            isDateOnly: false
-        )
+        return utcCalendar.date(from: fallbackComponents) ?? Date(timeIntervalSince1970: 0)
     }
 
     private func getTimeZoneAbbreviation(for timeZone: TimeZone, isStandard: Bool) -> String {
@@ -180,8 +241,10 @@ public final class TimeZoneRegistry: Sendable {
     }
 
     private func findRepresentativeDates(for timeZone: TimeZone) -> (standard: Date, daylight: Date) {
-        let currentYear = Calendar.current.component(.year, from: Date())
-        let calendar = Calendar.current
+        // Use UTC calendar for server consistency - never depend on system timezone
+        var utcCalendar = Calendar(identifier: .gregorian)
+        utcCalendar.timeZone = TimeZone(identifier: "UTC")!
+        let currentYear = utcCalendar.component(.year, from: Date())
 
         // Sample dates throughout the year to find standard vs daylight periods
         var standardDate = Date()
@@ -191,7 +254,7 @@ public final class TimeZoneRegistry: Sendable {
 
         // Sample every month to find the minimum and maximum offsets
         for month in 1...12 {
-            guard let date = calendar.date(from: DateComponents(year: currentYear, month: month, day: 15)) else { continue }
+            guard let date = utcCalendar.date(from: DateComponents(year: currentYear, month: month, day: 15)) else { continue }
             let offset = timeZone.secondsFromGMT(for: date)
 
             if offset < minOffset {
@@ -206,8 +269,8 @@ public final class TimeZoneRegistry: Sendable {
 
         // If no DST (same offset year-round), use winter/summer dates
         if minOffset == maxOffset {
-            let winterDate = calendar.date(from: DateComponents(year: currentYear, month: 1, day: 15)) ?? Date()
-            let summerDate = calendar.date(from: DateComponents(year: currentYear, month: 7, day: 15)) ?? Date()
+            let winterDate = utcCalendar.date(from: DateComponents(year: currentYear, month: 1, day: 15)) ?? Date()
+            let summerDate = utcCalendar.date(from: DateComponents(year: currentYear, month: 7, day: 15)) ?? Date()
             return (winterDate, summerDate)
         }
 
@@ -262,8 +325,10 @@ public final class TimeZoneRegistry: Sendable {
     }
 
     private func analyzeDSTTransitions(for timeZone: TimeZone, isStandard: Bool) -> DSTTransitionInfo? {
-        let calendar = Calendar.current
-        let currentYear = calendar.component(.year, from: Date())
+        // Use UTC calendar for server consistency
+        var utcCalendar = Calendar(identifier: .gregorian)
+        utcCalendar.timeZone = TimeZone(identifier: "UTC")!
+        let currentYear = utcCalendar.component(.year, from: Date())
 
         // Check multiple years to find consistent pattern
         var transitions: [Date] = []
@@ -276,13 +341,13 @@ public final class TimeZoneRegistry: Sendable {
 
         guard let firstTransition = transitions.first else { return nil }
 
-        let month = calendar.component(.month, from: firstTransition)
-        let weekday = weekdayFromFoundation(calendar.component(.weekday, from: firstTransition))
-        let dayOfMonth = calendar.component(.day, from: firstTransition)
+        let month = utcCalendar.component(.month, from: firstTransition)
+        let weekday = weekdayFromFoundation(utcCalendar.component(.weekday, from: firstTransition))
+        let dayOfMonth = utcCalendar.component(.day, from: firstTransition)
 
         // Determine if it's a specific week or last week of month
-        let weekOfMonth = calculateWeekOfMonth(dayOfMonth: dayOfMonth, month: month, year: calendar.component(.year, from: firstTransition))
-        let isLastWeek = isLastWeekOfMonth(dayOfMonth: dayOfMonth, month: month, year: calendar.component(.year, from: firstTransition))
+        let weekOfMonth = calculateWeekOfMonth(dayOfMonth: dayOfMonth, month: month, year: utcCalendar.component(.year, from: firstTransition))
+        let isLastWeek = isLastWeekOfMonth(dayOfMonth: dayOfMonth, month: month, year: utcCalendar.component(.year, from: firstTransition))
 
         return DSTTransitionInfo(
             month: month,
@@ -293,7 +358,9 @@ public final class TimeZoneRegistry: Sendable {
     }
 
     private func findTransitionDate(for timeZone: TimeZone, year: Int, isStandard: Bool) -> Date? {
-        let calendar = Calendar.current
+        // Use UTC calendar for server consistency
+        var utcCalendar = Calendar(identifier: .gregorian)
+        utcCalendar.timeZone = TimeZone(identifier: "UTC")!
 
         // For standard transitions, check fall months (Sept-Dec)
         // For daylight transitions, check spring months (Feb-May)
@@ -302,8 +369,8 @@ public final class TimeZoneRegistry: Sendable {
         for month in monthsToCheck {
             // Check each day of the month for offset changes
             for day in 1...31 {
-                guard let date = calendar.date(from: DateComponents(year: year, month: month, day: day)),
-                    let nextDate = calendar.date(byAdding: .day, value: 1, to: date)
+                guard let date = utcCalendar.date(from: DateComponents(year: year, month: month, day: day)),
+                    let nextDate = utcCalendar.date(byAdding: .day, value: 1, to: date)
                 else { continue }
 
                 let currentOffset = timeZone.secondsFromGMT(for: date)
@@ -333,9 +400,11 @@ public final class TimeZoneRegistry: Sendable {
     }
 
     private func isLastWeekOfMonth(dayOfMonth: Int, month: Int, year: Int) -> Bool {
-        let calendar = Calendar.current
-        guard let date = calendar.date(from: DateComponents(year: year, month: month, day: dayOfMonth)),
-            let range = calendar.range(of: .day, in: .month, for: date)
+        // Use UTC calendar for server consistency
+        var utcCalendar = Calendar(identifier: .gregorian)
+        utcCalendar.timeZone = TimeZone(identifier: "UTC")!
+        guard let date = utcCalendar.date(from: DateComponents(year: year, month: month, day: dayOfMonth)),
+            let range = utcCalendar.range(of: .day, in: .month, for: date)
         else {
             return false
         }

@@ -565,19 +565,19 @@ struct TimeZoneIntegrationTests {
 
         let icsContent = try ICalendarSerializer().serialize(calendar)
 
-        // Expected ical.Net-style format (simplified)
+        // Expected format with actual 1970 DST transition dates for America/New_York
         let expectedElements = [
             "BEGIN:VTIMEZONE",
             "TZID:America/New_York",
             "X-LIC-LOCATION:America/New_York",
             "BEGIN:STANDARD",
-            "DTSTART:19701101T020000",  // Floating time - no Z suffix
+            "DTSTART:19701025T020000",  // Actual 1970 standard transition: October 25
             "TZNAME:EST",
             "TZOFFSETFROM:-0400",
             "TZOFFSETTO:-0500",
             "END:STANDARD",
             "BEGIN:DAYLIGHT",
-            "DTSTART:19700314T020000",  // Floating time - no Z suffix
+            "DTSTART:19700426T020000",  // Actual 1970 daylight transition: April 26
             "TZNAME:EDT",
             "TZOFFSETFROM:-0500",
             "TZOFFSETTO:-0400",

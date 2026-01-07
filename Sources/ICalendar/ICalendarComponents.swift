@@ -1837,7 +1837,7 @@ extension ICalendarComponent {
     }
 
     /// Resolves the appropriate timezone for a property
-    private func resolveTimeZone(for property: any ICalendarProperty) -> TimeZone {
+    private func resolveTimeZone(for property: any ICalendarProperty) -> TimeZone? {
         // Check for explicit TZID parameter
         if let tzid = property.parameters["TZID"] {
             return TimeZone(identifier: tzid) ?? .current
@@ -1853,8 +1853,8 @@ extension ICalendarComponent {
             return .current
         }
 
-        // Default to current timezone for floating time
-        return .current
+        // True floating time (no TZID, no Z suffix, no VALUE=DATE) should have no timezone
+        return nil
     }
 
     /// Detects UTC time values using proper regex pattern matching

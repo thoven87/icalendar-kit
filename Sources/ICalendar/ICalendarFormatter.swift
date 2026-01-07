@@ -23,7 +23,7 @@ package struct ICalendarFormatter {
     private static let iso8601FloatingFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd'T'HHmmss"
-        formatter.timeZone = nil  // No timezone for floating time
+        formatter.timeZone = TimeZone(identifier: "UTC")  // Use UTC for server consistency
         formatter.locale = Locale(identifier: "en_US_POSIX")
         return formatter
     }()
@@ -62,7 +62,7 @@ package struct ICalendarFormatter {
     }
 
     @inline(__always)
-    package static func parseDateTime(_ value: String, timeZone: TimeZone = .gmt) -> ICalDateTime? {
+    package static func parseDateTime(_ value: String, timeZone: TimeZone? = .gmt) -> ICalDateTime? {
         let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
 
         // Check for date-only format (YYYYMMDD) - timezone should be nil for date-only events
@@ -77,13 +77,20 @@ package struct ICalendarFormatter {
             return ICalDateTime(date: date, timeZone: TimeZone(identifier: "UTC"), isDateOnly: false)
         }
 
-        // Local time format (YYYYMMDDTHHMMSS) - use provided timezone
-        let localFormatter = DateFormatter()
-        localFormatter.dateFormat = "yyyyMMdd'T'HHmmss"
-        localFormatter.timeZone = timeZone
-        localFormatter.locale = Locale(identifier: "en_US_POSIX")
-        guard let date = localFormatter.date(from: trimmedValue) else { return nil }
-        return ICalDateTime(date: date, timeZone: timeZone, isDateOnly: false)
+        // Local time format (YYYYMMDDTHHMMSS) - handle floating time vs zoned time
+        if let timeZone = timeZone {
+            // Zoned time - use provided timezone
+            let localFormatter = DateFormatter()
+            localFormatter.dateFormat = "yyyyMMdd'T'HHmmss"
+            localFormatter.timeZone = timeZone
+            localFormatter.locale = Locale(identifier: "en_US_POSIX")
+            guard let date = localFormatter.date(from: trimmedValue) else { return nil }
+            return ICalDateTime(date: date, timeZone: timeZone, isDateOnly: false)
+        } else {
+            // True floating time - use UTC for parsing but set timezone to nil
+            guard let date = iso8601FloatingFormatter.date(from: trimmedValue) else { return nil }
+            return ICalDateTime(date: date, timeZone: nil, isDateOnly: false)
+        }
     }
 
     // MARK: - Duration Formatting
