@@ -117,7 +117,7 @@ public final class TimeZoneRegistry: Sendable {
         let month = isStandard ? 11 : 3  // November for standard, March for daylight
         let day = isStandard ? 1 : 14  // Simple fixed days
 
-        // Create components without timezone to get "floating" time
+        // Create components in the target timezone to get correct wall clock time
         let dateComponents = DateComponents(
             year: year,
             month: month,
@@ -127,7 +127,10 @@ public final class TimeZoneRegistry: Sendable {
             second: 0
         )
 
-        let date = Calendar.current.date(from: dateComponents) ?? Date(timeIntervalSince1970: 0)
+        // Use calendar configured for the target timezone to get correct wall time
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let date = calendar.date(from: dateComponents) ?? Date(timeIntervalSince1970: 0)
 
         // Return as floating time for VTIMEZONE DTSTART (no timezone, no Z suffix)
         return ICalDateTime(
