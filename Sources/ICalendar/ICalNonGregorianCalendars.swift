@@ -415,9 +415,6 @@ public struct ICalNonGregorianCalendars: Sendable {
             // WARNING: This is a very simplified approximation suitable only for basic UI display
             // For production astronomical applications (prayer times, solar panels, navigation),
             // use proper astronomical libraries like SwiftAA or similar
-
-            // Get year for leap year calculation
-            let year = utcCalendar.component(.year, from: date)
             let daysInYear = utcCalendar.range(of: .day, in: .year, for: date)?.count ?? 365
 
             // More accurate seasonal position accounting for actual year length
