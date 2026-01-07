@@ -1836,12 +1836,26 @@ extension ICalendarComponent {
         let timeZone: TimeZone
         if let tzid = property.parameters["TZID"] {
             timeZone = TimeZone(identifier: tzid) ?? .current
+        } else if isUTCTimeValue(property.value) {
+            // UTC time with Z suffix - use UTC timezone
+            timeZone = TimeZone(identifier: "UTC") ?? .current
+        } else if property.parameters["VALUE"] == "DATE" {
+            // Date-only properties don't have timezones
+            timeZone = .current
         } else {
-            // For properties without TZID, preserve timezone from the value format
+            // Floating time - no timezone specified
             timeZone = .current
         }
 
         return ICalendarFormatter.parseDateTime(property.value, timeZone: timeZone)
+    }
+
+    /// Detects UTC time values using proper regex pattern matching
+    /// Validates format: YYYYMMDDTHHMMSSZ
+    private func isUTCTimeValue(_ value: String) -> Bool {
+        // RFC 5545 UTC time format regex: YYYYMMDDTHHMMSSZ
+        let utcPattern = #"^\d{8}T\d{6}Z$"#
+        return value.range(of: utcPattern, options: .regularExpression) != nil
     }
 
     /// Set a date-time property

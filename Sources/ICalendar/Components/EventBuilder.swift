@@ -538,6 +538,14 @@ public struct EventBuilder: Sendable, ICalendarBuildable {
         return builder
     }
 
+    /// Sets the recurrence ID for this event instance
+    /// Used when modifying a single occurrence of a recurring event
+    public func recurrenceId(_ date: Date, timeZone: TimeZone = .current) -> EventBuilder {
+        var builder = self
+        builder.event.recurrenceId = ICalDateTime(date: date, timeZone: timeZone)
+        return builder
+    }
+
     /// Creates timestamp properties
     public func createdNow() -> EventBuilder {
         var builder = self

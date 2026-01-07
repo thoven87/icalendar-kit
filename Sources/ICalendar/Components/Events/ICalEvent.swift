@@ -172,6 +172,13 @@ public struct ICalEvent: ICalendarComponent, ICalendarBuildable, Sendable {
         set { setDateListProperty(ICalPropertyName.exceptionDates, values: newValue) }
     }
 
+    /// Recurrence ID - identifies a specific instance of a recurring event
+    /// Used when modifying a single occurrence of a recurring event
+    public var recurrenceId: ICalDateTime? {
+        get { getDateTimeProperty(ICalPropertyName.recurrenceId) }
+        set { setDateTimeProperty(ICalPropertyName.recurrenceId, value: newValue) }
+    }
+
     /// Event organizer
     public var organizer: ICalAttendee? {
         get { getAttendeeProperty(ICalPropertyName.organizer) }
