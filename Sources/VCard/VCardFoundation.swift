@@ -424,8 +424,10 @@ public struct VCardDate: Sendable, Codable, Hashable {
     }
 
     public init(date: Date) {
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        // Use UTC calendar for server consistency
+        var utcCalendar = Calendar(identifier: .gregorian)
+        utcCalendar.timeZone = TimeZone(identifier: "UTC")!
+        let components = utcCalendar.dateComponents([.year, .month, .day], from: date)
         self.year = components.year
         self.month = components.month
         self.day = components.day
@@ -438,7 +440,10 @@ public struct VCardDate: Sendable, Codable, Hashable {
         components.year = year
         components.month = month
         components.day = day
-        return Calendar.current.date(from: components)
+        // Use UTC calendar for server consistency
+        var utcCalendar = Calendar(identifier: .gregorian)
+        utcCalendar.timeZone = TimeZone(identifier: "UTC")!
+        return utcCalendar.date(from: components)
     }
 }
 
@@ -469,8 +474,10 @@ public struct VCardDateTime: Sendable, Codable, Hashable {
 
     public init(date: Date) {
         self.date = VCardDate(date: date)
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.hour, .minute, .second], from: date)
+        // Use UTC calendar for server consistency
+        var utcCalendar = Calendar(identifier: .gregorian)
+        utcCalendar.timeZone = TimeZone(identifier: "UTC")!
+        let components = utcCalendar.dateComponents([.hour, .minute, .second], from: date)
         self.time = VCardTime(
             hour: components.hour,
             minute: components.minute,

@@ -97,16 +97,30 @@ public struct EventBuilder: Sendable, ICalendarBuildable {
     }
 
     /// Sets the start time with timezone
-    public func starts(at date: Date, timeZone: TimeZone = .current) -> EventBuilder {
+    public func starts(at date: Date, timeZone: TimeZone) -> EventBuilder {
         var builder = self
         builder.event.dateTimeStart = ICalDateTime(date: date, timeZone: timeZone)
         return builder
     }
 
+    /// Sets the start time as floating time (no timezone)
+    public func starts(at date: Date) -> EventBuilder {
+        var builder = self
+        builder.event.dateTimeStart = ICalDateTime(date: date, timeZone: nil)
+        return builder
+    }
+
     /// Sets the end time with timezone
-    public func ends(at date: Date, timeZone: TimeZone = .current) -> EventBuilder {
+    public func ends(at date: Date, timeZone: TimeZone) -> EventBuilder {
         var builder = self
         builder.event.dateTimeEnd = ICalDateTime(date: date, timeZone: timeZone)
+        return builder
+    }
+
+    /// Sets the end time as floating time (no timezone)
+    public func ends(at date: Date) -> EventBuilder {
+        var builder = self
+        builder.event.dateTimeEnd = ICalDateTime(date: date, timeZone: nil)
         return builder
     }
 
@@ -118,14 +132,23 @@ public struct EventBuilder: Sendable, ICalendarBuildable {
         return builder
     }
 
-    /// Sets as all-day event
-    public func allDay(on date: Date, timeZone: TimeZone = .current) -> EventBuilder {
+    /// Sets as all-day event using specified timezone for date calculation
+    /// Note: All-day events don't store timezone info - this parameter only determines
+    /// which calendar date the Date object represents (e.g., "July 15th in Eastern time")
+    public func allDay(on date: Date, timeZone: TimeZone) -> EventBuilder {
         var builder = self
-        let calendar = Calendar(identifier: .gregorian)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
         let startOfDay = calendar.startOfDay(for: date)
-        builder.event.dateTimeStart = ICalDateTime(date: startOfDay, timeZone: timeZone, isDateOnly: true)
+        builder.event.dateTimeStart = ICalDateTime(date: startOfDay, timeZone: nil, isDateOnly: true)
         builder.event.dateTimeEnd = nil
         return builder
+    }
+
+    /// Sets as all-day event using current timezone for date calculation
+    /// Creates an all-day event for the calendar date in your local timezone
+    public func allDay(on date: Date) -> EventBuilder {
+        allDay(on: date, timeZone: .current)
     }
 
     /// Sets event as confirmed
@@ -535,6 +558,14 @@ public struct EventBuilder: Sendable, ICalendarBuildable {
         var builder = self
         let exceptionDates = dates.map { ICalDateTime(date: $0, timeZone: timeZone) }
         builder.event.exceptionDates.append(contentsOf: exceptionDates)
+        return builder
+    }
+
+    /// Sets the recurrence ID for this event instance
+    /// Used when modifying a single occurrence of a recurring event
+    public func recurrenceId(_ date: Date, timeZone: TimeZone = .current) -> EventBuilder {
+        var builder = self
+        builder.event.recurrenceId = ICalDateTime(date: date, timeZone: timeZone)
         return builder
     }
 

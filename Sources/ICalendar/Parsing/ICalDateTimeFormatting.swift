@@ -7,24 +7,26 @@ extension ICalDateTime {
     func formatForProperty() -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = timeZone ?? TimeZone(secondsFromGMT: 0)!
 
         switch precision {
         case .date:
             formatter.dateFormat = "yyyyMMdd"
+            formatter.timeZone = TimeZone(identifier: "UTC")
             return formatter.string(from: date)
 
         case .dateTime:
             formatter.dateFormat = "yyyyMMdd'T'HHmmss"
+            formatter.timeZone = TimeZone(identifier: "UTC")  // Use UTC for floating time
             return formatter.string(from: date)
 
         case .dateTimeUtc:
-            formatter.timeZone = TimeZone(secondsFromGMT: 0)!
+            formatter.timeZone = TimeZone(identifier: "UTC")
             formatter.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
             return formatter.string(from: date)
 
         case .dateTimeZoned:
             formatter.dateFormat = "yyyyMMdd'T'HHmmss"
+            formatter.timeZone = timeZone ?? TimeZone(identifier: "UTC")
             return formatter.string(from: date)
         }
     }
@@ -37,7 +39,7 @@ extension ICalDateTime {
         // DATE format: YYYYMMDD
         if value.count == 8, value.allSatisfy(\.isNumber) {
             formatter.dateFormat = "yyyyMMdd"
-            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+            formatter.timeZone = TimeZone(identifier: "UTC")
             guard let date = formatter.date(from: value) else { return nil }
             return ICalDateTime(date: date, timeZone: nil, isDateOnly: true)
         }
@@ -45,9 +47,9 @@ extension ICalDateTime {
         // DATE-TIME with Z (UTC): YYYYMMDDTHHMMSSZ
         if value.hasSuffix("Z") && value.count == 16 {
             formatter.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
-            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+            formatter.timeZone = TimeZone(identifier: "UTC")
             guard let date = formatter.date(from: value) else { return nil }
-            return ICalDateTime(date: date, timeZone: TimeZone(secondsFromGMT: 0)!)
+            return ICalDateTime(date: date, timeZone: TimeZone(identifier: "UTC"))
         }
 
         // DATE-TIME local: YYYYMMDDTHHMMSS
@@ -59,8 +61,8 @@ extension ICalDateTime {
                 guard let date = formatter.date(from: value) else { return nil }
                 return ICalDateTime(date: date, timeZone: timeZone)
             } else {
-                // Local time without timezone
-                formatter.timeZone = TimeZone.current
+                // Floating time - no timezone specified, use UTC for parsing
+                formatter.timeZone = TimeZone(identifier: "UTC")
                 guard let date = formatter.date(from: value) else { return nil }
                 return ICalDateTime(date: date, timeZone: nil)
             }

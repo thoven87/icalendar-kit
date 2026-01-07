@@ -23,7 +23,7 @@ package struct ICalendarFormatter {
     private static let iso8601FloatingFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd'T'HHmmss"
-        formatter.timeZone = nil  // No timezone for floating time
+        formatter.timeZone = TimeZone(identifier: "UTC")  // Use UTC for server consistency
         formatter.locale = Locale(identifier: "en_US_POSIX")
         return formatter
     }()
@@ -31,6 +31,7 @@ package struct ICalendarFormatter {
     private static let dateOnlyFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd"
+        formatter.timeZone = TimeZone(identifier: "UTC")
         formatter.locale = Locale(identifier: "en_US_POSIX")
         return formatter
     }()
@@ -50,15 +51,18 @@ package struct ICalendarFormatter {
                 // UTC time - no timezone, with Z suffix
                 return iso8601BasicFormatter.string(from: dateTime.date)
             case .dateTimeZoned:
-                // Zoned time - with specific timezone
-                iso8601LocalFormatter.timeZone = dateTime.timeZone
-                return iso8601LocalFormatter.string(from: dateTime.date)
+                // Zoned time - with specific timezone (create new formatter for thread safety)
+                let zonedFormatter = DateFormatter()
+                zonedFormatter.dateFormat = "yyyyMMdd'T'HHmmss"
+                zonedFormatter.timeZone = dateTime.timeZone
+                zonedFormatter.locale = Locale(identifier: "en_US_POSIX")
+                return zonedFormatter.string(from: dateTime.date)
             }
         }
     }
 
     @inline(__always)
-    package static func parseDateTime(_ value: String, timeZone: TimeZone = .gmt) -> ICalDateTime? {
+    package static func parseDateTime(_ value: String, timeZone: TimeZone? = .gmt) -> ICalDateTime? {
         let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
 
         // Check for date-only format (YYYYMMDD) - timezone should be nil for date-only events
@@ -70,12 +74,23 @@ package struct ICalendarFormatter {
         // Check for UTC format (YYYYMMDDTHHMMSSZ) - MUST use UTC timezone, not parameter
         if trimmedValue.hasSuffix("Z") {
             guard let date = iso8601BasicFormatter.date(from: trimmedValue) else { return nil }
-            return ICalDateTime(date: date, timeZone: timeZone, isDateOnly: false)
+            return ICalDateTime(date: date, timeZone: TimeZone(identifier: "UTC"), isDateOnly: false)
         }
 
-        // Local time format (YYYYMMDDTHHMMSS) - use provided timezone
-        guard let date = iso8601LocalFormatter.date(from: trimmedValue) else { return nil }
-        return ICalDateTime(date: date, timeZone: timeZone, isDateOnly: false)
+        // Local time format (YYYYMMDDTHHMMSS) - handle floating time vs zoned time
+        if let timeZone = timeZone {
+            // Zoned time - use provided timezone
+            let localFormatter = DateFormatter()
+            localFormatter.dateFormat = "yyyyMMdd'T'HHmmss"
+            localFormatter.timeZone = timeZone
+            localFormatter.locale = Locale(identifier: "en_US_POSIX")
+            guard let date = localFormatter.date(from: trimmedValue) else { return nil }
+            return ICalDateTime(date: date, timeZone: timeZone, isDateOnly: false)
+        } else {
+            // True floating time - use UTC for parsing but set timezone to nil
+            guard let date = iso8601FloatingFormatter.date(from: trimmedValue) else { return nil }
+            return ICalDateTime(date: date, timeZone: nil, isDateOnly: false)
+        }
     }
 
     // MARK: - Duration Formatting

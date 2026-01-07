@@ -1832,52 +1832,71 @@ extension ICalendarComponent {
     public func getDateTimeProperty(_ name: String) -> ICalDateTime? {
         guard let property = properties.first(where: { $0.name == name }) else { return nil }
 
-        // Check for TZID parameter to determine timezone
-        let timeZone: TimeZone
+        let timeZone = resolveTimeZone(for: property)
+        return ICalendarFormatter.parseDateTime(property.value, timeZone: timeZone)
+    }
+
+    /// Resolves the appropriate timezone for a property
+    private func resolveTimeZone(for property: any ICalendarProperty) -> TimeZone? {
+        // Check for explicit TZID parameter
         if let tzid = property.parameters["TZID"] {
-            timeZone = TimeZone(identifier: tzid) ?? .current
-        } else {
-            // For properties without TZID, preserve timezone from the value format
-            timeZone = .current
+            return TimeZone(identifier: tzid) ?? .current
         }
 
-        return ICalendarFormatter.parseDateTime(property.value, timeZone: timeZone)
+        // Check for UTC time format (ends with 'Z')
+        if isUTCTimeValue(property.value) {
+            return TimeZone(identifier: "UTC") ?? .current
+        }
+
+        // Date-only properties use current timezone
+        if property.parameters["VALUE"] == "DATE" {
+            return .current
+        }
+
+        // True floating time (no TZID, no Z suffix, no VALUE=DATE) should have no timezone
+        return nil
+    }
+
+    /// Detects UTC time values using proper regex pattern matching
+    /// Validates format: YYYYMMDDTHHMMSSZ
+    private func isUTCTimeValue(_ value: String) -> Bool {
+        // RFC 5545 UTC time format regex: YYYYMMDDTHHMMSSZ
+        let utcPattern = #"^\d{8}T\d{6}Z$"#
+        return value.range(of: utcPattern, options: .regularExpression) != nil
     }
 
     /// Set a date-time property
     @inline(__always)
     public mutating func setDateTimeProperty(_ name: String, value: ICalDateTime?) {
-        // Remove existing property
         properties.removeAll { $0.name == name }
 
-        guard let value = value else { return }
+        guard let value else { return }
 
-        // Create property with appropriate parameters
-        var parameters: [String: String] = [:]
-
-        if value.isDateOnly {
-            // For date-only events (all-day events), use VALUE=DATE and no timezone
-            // RFC 5545: All-day events must use VALUE=DATE format, e.g., DTSTART;VALUE=DATE:20250715
-            parameters["VALUE"] = "DATE"
-        } else {
-            // For timed events, add timezone parameter if needed
-            // RFC 5545: UTC and GMT times use 'Z' suffix (handled by formatter), not TZID parameter
-            // - UTC/GMT: DTSTART:20260106T143000Z (no TZID, formatter adds Z)
-            // - Regular timezones: DTSTART;TZID=America/New_York:20260106T143000 (with TZID)
-            // - Floating time: DTSTART:20260106T143000 (no TZID, no Z)
-            if let timeZone = value.timeZone,
-                timeZone.identifier != "UTC" && timeZone.identifier != "GMT"
-            {
-                parameters["TZID"] = timeZone.identifier
-            }
-        }
-
+        let parameters = buildDateTimeParameters(for: value)
         let property = ICalProperty(
             name: name,
             value: ICalendarFormatter.format(dateTime: value),
             parameters: parameters
         )
         properties.append(property)
+    }
+
+    /// Builds appropriate parameters for a date-time property
+    private func buildDateTimeParameters(for dateTime: ICalDateTime) -> [String: String] {
+        guard !dateTime.isDateOnly else {
+            // RFC 5545: All-day events use VALUE=DATE format
+            return ["VALUE": "DATE"]
+        }
+
+        // For timed events, add TZID parameter if needed
+        guard let timeZone = dateTime.timeZone,
+            !["UTC", "GMT"].contains(timeZone.identifier)
+        else {
+            // UTC/GMT times use 'Z' suffix, no TZID parameter needed
+            return [:]
+        }
+
+        return ["TZID": timeZone.identifier]
     }
 
     /// Get a duration property

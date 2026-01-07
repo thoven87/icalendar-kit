@@ -407,17 +407,48 @@ public struct ICalNonGregorianCalendars: Sendable {
 
         /// Basic solar information calculation
         public static func solarInfo(for date: Date, latitude: Double, longitude: Double) -> SolarInfo {
-            let calendar = Calendar.current
-            let dayOfYear = calendar.ordinality(of: .day, in: .year, for: date) ?? 1
+            // Use UTC calendar for server consistency
+            var utcCalendar = Calendar(identifier: .gregorian)
+            utcCalendar.timeZone = TimeZone(identifier: "UTC")!
+            let dayOfYear = utcCalendar.ordinality(of: .day, in: .year, for: date) ?? 1
 
-            // Simplified calculation - for production use, consider more accurate astronomical libraries
-            let seasonalPosition = Double(dayOfYear) / 365.25
+            // WARNING: This is a very simplified approximation suitable only for basic UI display
+            // For production astronomical applications (prayer times, solar panels, navigation),
+            // use proper astronomical libraries like SwiftAA or similar
+            let daysInYear = utcCalendar.range(of: .day, in: .year, for: date)?.count ?? 365
 
-            // Approximate sunrise/sunset calculation
-            let solarNoon = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: date) ?? date
-            let dayLengthHours = 12 + 4 * sin(2 * .pi * seasonalPosition) * sin(.pi * latitude / 180)
+            // More accurate seasonal position accounting for actual year length
+            let seasonalPosition = Double(dayOfYear) / Double(daysInYear)
+
+            // Improved approximation with better constants
+            // Still simplified - doesn't account for equation of time, atmospheric refraction, etc.
+            // Break down complex expression for compiler
+            let dayOfYearOffset = 284 + dayOfYear
+            let yearFraction = Double(dayOfYearOffset) / Double(daysInYear)
+            let solarAngle = 2 * .pi * yearFraction
+            let solarDeclination = 23.45 * sin(solarAngle)
+            let latitudeRad = latitude * .pi / 180
+            let declinationRad = solarDeclination * .pi / 180
+
+            // Calculate day length using more accurate formula with bounds checking
+            let cosHourAngle = -tan(latitudeRad) * tan(declinationRad)
+            let dayLengthHours: Double
+
+            if cosHourAngle < -1.0 {
+                // Polar summer - sun never sets
+                dayLengthHours = 24.0
+            } else if cosHourAngle > 1.0 {
+                // Polar winter - sun never rises
+                dayLengthHours = 0.0
+            } else {
+                let hourAngle = acos(cosHourAngle)
+                dayLengthHours = 2 * hourAngle * 12 / .pi
+            }
+
             let dayLength = dayLengthHours * 3600
 
+            // Solar noon (still approximated - doesn't account for equation of time)
+            let solarNoon = utcCalendar.date(bySettingHour: 12, minute: 0, second: 0, of: date) ?? date
             let sunrise = solarNoon.addingTimeInterval(-dayLength / 2)
             let sunset = solarNoon.addingTimeInterval(dayLength / 2)
 
@@ -428,6 +459,41 @@ public struct ICalNonGregorianCalendars: Sendable {
                 dayLength: dayLength,
                 seasonalPosition: seasonalPosition
             )
+        }
+
+        /// Checks if the simplified astronomical calculations are suitable for a given location
+        /// Returns false for locations where accuracy would be severely compromised
+        public static func isCalculationSuitableFor(latitude: Double, longitude: Double) -> Bool {
+            // Simplified calculations become very inaccurate near polar regions
+            let absLatitude = abs(latitude)
+
+            // Warn for extreme latitudes (beyond Arctic/Antarctic circles ~66.5°)
+            if absLatitude > 66.5 {
+                return false
+            }
+
+            // Also warn for very high latitudes where seasonal variations are extreme
+            if absLatitude > 60.0 {
+                return false
+            }
+
+            return true
+        }
+
+        /// Returns a warning message for locations where calculations may be inaccurate
+        public static func accuracyWarning(for latitude: Double, longitude: Double) -> String? {
+            if !isCalculationSuitableFor(latitude: latitude, longitude: longitude) {
+                return
+                    "Astronomical calculations may be highly inaccurate for this location (latitude: \(latitude)°). Consider using a dedicated astronomical library for production applications."
+            }
+
+            let absLatitude = abs(latitude)
+            if absLatitude > 50.0 {
+                return
+                    "Sunrise/sunset times may have reduced accuracy for high latitude locations. For critical applications, use a proper astronomical library."
+            }
+
+            return nil
         }
     }
 }

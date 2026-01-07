@@ -8,8 +8,10 @@ struct AllDayEventTests {
 
     @Test("All-day event serialization uses correct VALUE=DATE format")
     func testAllDayEventSerializationIssue() throws {
-        // Create a date for July 15, 2025
-        let calendar = Calendar(identifier: .gregorian)
+        // Create a date for July 15, 2025 in UTC
+        let timeZone = TimeZone(identifier: "UTC")!
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
         var dateComponents = DateComponents()
         dateComponents.year = 2025
         dateComponents.month = 7
@@ -18,8 +20,6 @@ struct AllDayEventTests {
             Issue.record("Failed to create test date")
             return
         }
-
-        let timeZone = TimeZone(identifier: "UTC")!
 
         // Test 1: Current EventBuilder.allDay()
         let allDayCalendar = ICalendar.withEvent(
