@@ -325,4 +325,114 @@ struct RecurringEventTests {
         #expect(icsContent.contains("RRULE:FREQ=MONTHLY"), "Generated calendar should contain monthly rule")
         #expect(icsContent.contains("BYDAY=MO,TU,WE,TH,FR"), "Generated calendar should contain weekdays")
     }
+
+    @Test("RFC 5545 Compliant Absolute Time Triggers")
+    func testAbsoluteTimeTriggers() throws {
+        var calendar = ICalendar(productId: "-//AbsoluteTriggerTest//Test v1.0//EN")
+        calendar.name = "Absolute Time Trigger Test Calendar"
+        calendar.calendarDescription = "Test calendar to validate RFC 5545 compliant absolute time triggers"
+
+        // Add timezone
+        if let vtimezone = TimeZoneRegistry.shared.getTimeZone(for: "America/New_York") {
+            calendar.addTimeZone(vtimezone)
+        }
+
+        // Create a recurring event with absolute time alarm
+        var dateCalendar = Calendar(identifier: .gregorian)
+        dateCalendar.timeZone = Self.estTimeZone
+        let startDate = dateCalendar.date(from: DateComponents(year: 2024, month: 1, day: 1))!
+        let alarmDateTime = dateCalendar.date(from: DateComponents(year: 2024, month: 1, day: 1, hour: 8, minute: 45))!
+
+        let eventWithAbsoluteAlarm = EventBuilder(summary: "Event with Absolute Time Alarm")
+            .allDay(on: startDate, timeZone: Self.estTimeZone)
+            .repeatsWeekly(every: 1, on: [.monday, .tuesday, .wednesday, .thursday, .friday])
+            .description("All-day recurring event with 8:45 AM alarm")
+            .categories("Test", "AbsoluteTrigger")
+            .confirmed()
+            .createdNow()
+            // Test the fixed absolute time trigger
+            .addAlarm(
+                .display(description: "Morning reminder at 8:45 AM EST"),
+                trigger: .absoluteTime(alarmDateTime)
+            )
+            .buildEvent()
+
+        calendar.addEvent(eventWithAbsoluteAlarm)
+
+        let icsContent: String = try ICalendarKit.serializeCalendar(calendar)
+
+        // Verify the calendar structure
+        #expect(icsContent.contains("BEGIN:VCALENDAR"), "Generated calendar should contain VCALENDAR")
+        #expect(icsContent.contains("BEGIN:VEVENT"), "Generated calendar should contain VEVENT")
+        #expect(icsContent.contains("BEGIN:VALARM"), "Generated calendar should contain VALARM")
+
+        // Test the RFC 5545 compliant absolute trigger format
+        #expect(icsContent.contains("TRIGGER:VALUE=DATE-TIME:"), "Absolute triggers should use RFC 5545 VALUE=DATE-TIME format")
+        #expect(icsContent.contains("Z"), "Absolute triggers should include UTC timezone indicator")
+
+        // Ensure old invalid format is not present
+        #expect(!icsContent.contains("TRIGGER:2024"), "Should not contain invalid bare datetime trigger format")
+
+        // Verify alarm properties
+        #expect(icsContent.contains("ACTION:DISPLAY"), "Should contain display alarm action")
+        #expect(icsContent.contains("DESCRIPTION:Morning reminder at 8:45 AM EST"), "Should contain alarm description")
+
+        // Verify recurring pattern
+        #expect(icsContent.contains("RRULE:FREQ=WEEKLY"), "Should contain weekly recurrence rule")
+        #expect(icsContent.contains("BYDAY=MO,TU,WE,TH,FR"), "Should contain weekday pattern")
+    }
+
+    @Test("Minutes After Trigger for Recurring Events")
+    func testMinutesAfterTrigger() throws {
+        var calendar = ICalendar(productId: "-//MinutesAfterTest//Test v1.0//EN")
+        calendar.name = "Minutes After Trigger Test Calendar"
+        calendar.calendarDescription = "Test calendar to validate minutesAfter triggers for recurring events"
+
+        // Add timezone
+        if let vtimezone = TimeZoneRegistry.shared.getTimeZone(for: "America/New_York") {
+            calendar.addTimeZone(vtimezone)
+        }
+
+        // Create a recurring event with minutesAfter alarm
+        var dateCalendar = Calendar(identifier: .gregorian)
+        dateCalendar.timeZone = Self.estTimeZone
+        let startDate = dateCalendar.date(from: DateComponents(year: 2024, month: 1, day: 1))!
+
+        let eventWithMinutesAfterAlarm = EventBuilder(summary: "Event with Minutes After Alarm")
+            .allDay(on: startDate, timeZone: Self.estTimeZone)
+            .repeatsWeekly(every: 1, on: [.monday, .tuesday, .wednesday, .thursday, .friday])
+            .description("All-day recurring event with 8:45 AM alarm using minutesAfter")
+            .categories("Test", "MinutesAfter")
+            .confirmed()
+            .createdNow()
+            // Test the new minutesAfter trigger (525 minutes = 8 hours 45 minutes)
+            .addAlarm(
+                .display(description: "Morning reminder 8:45 AM after event start"),
+                trigger: .minutesAfter(525)
+            )
+            .buildEvent()
+
+        calendar.addEvent(eventWithMinutesAfterAlarm)
+
+        let icsContent: String = try ICalendarKit.serializeCalendar(calendar)
+
+        // Verify the calendar structure
+        #expect(icsContent.contains("BEGIN:VCALENDAR"), "Generated calendar should contain VCALENDAR")
+        #expect(icsContent.contains("BEGIN:VEVENT"), "Generated calendar should contain VEVENT")
+        #expect(icsContent.contains("BEGIN:VALARM"), "Generated calendar should contain VALARM")
+
+        // Test the positive trigger format for minutesAfter
+        #expect(icsContent.contains("TRIGGER:PT525M"), "minutesAfter triggers should use positive duration format PT525M")
+
+        // Ensure negative format is not present
+        #expect(!icsContent.contains("TRIGGER:-PT525M"), "Should not contain negative duration for minutesAfter")
+
+        // Verify alarm properties
+        #expect(icsContent.contains("ACTION:DISPLAY"), "Should contain display alarm action")
+        #expect(icsContent.contains("DESCRIPTION:Morning reminder 8:45 AM after event start"), "Should contain alarm description")
+
+        // Verify recurring pattern
+        #expect(icsContent.contains("RRULE:FREQ=WEEKLY"), "Should contain weekly recurrence rule")
+        #expect(icsContent.contains("BYDAY=MO,TU,WE,TH,FR"), "Should contain weekday pattern")
+    }
 }

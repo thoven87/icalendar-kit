@@ -579,19 +579,25 @@ public struct EventBuilder: Sendable, ICalendarBuildable {
     /// Alarm trigger timing options
     public enum AlarmTrigger {
         case minutesBefore(Int)
+        case minutesAfter(Int)
         case duration(ICalDuration)
-        case absoluteTime(Date, timeZone: TimeZone = .current)
+        case absoluteTime(Date)
         case eventStart
 
         internal var triggerString: String {
             switch self {
             case .minutesBefore(let minutes):
                 return "-PT\(minutes)M"
+            case .minutesAfter(let minutes):
+                return "PT\(minutes)M"
             case .duration(let duration):
                 return "-\(duration.description)"
-            case .absoluteTime(let date, let timeZone):
-                let dateTime = ICalDateTime(date: date, timeZone: timeZone)
-                return ICalendarFormatter.format(dateTime: dateTime)
+            case .absoluteTime(let date):
+                // Convert to UTC for proper RFC 5545 absolute trigger format
+                let utcTimeZone = TimeZone(identifier: "UTC")!
+                let utcDateTime = ICalDateTime(date: date, timeZone: utcTimeZone)
+                let formattedDateTime = ICalendarFormatter.format(dateTime: utcDateTime)
+                return "VALUE=DATE-TIME:\(formattedDateTime)"
             case .eventStart:
                 return "PT0M"
             }
