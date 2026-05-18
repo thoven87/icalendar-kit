@@ -125,9 +125,8 @@ Includes:
 
 ## Requirements
 
-- iOS 13.0+ / macOS 10.15+ / tvOS 13.0+ / watchOS 6.0+
+- iOS 18.0+ / macOS 15+
 - Swift 6.0+
-- Xcode 16.0+
 - Linux
 
 ## RFC Compliance
