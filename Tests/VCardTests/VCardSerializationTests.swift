@@ -29,7 +29,7 @@ func testCompleteVCardSerialization() throws {
     )
 
     vcard.title = "Software Engineer"
-    vcard.organization = VCardOrganization(organizationName: "Tech Corp")
+    vcard.organization = VCardOrganization(organizationName: "Tech Corp", organizationalUnits: ["Engineering", "Software"])
     vcard.birthday = VCardDate(year: 1990, month: 5, day: 15)
     vcard.gender = .male
     vcard.note = "Great colleague"
@@ -53,7 +53,7 @@ func testCompleteVCardSerialization() throws {
     #expect(serialized.contains("FN:John William Smith"))
     #expect(serialized.contains("N:Smith;John;William;;"))
     #expect(serialized.contains("TITLE:Software Engineer"))
-    #expect(serialized.contains("ORG:Tech Corp"))
+    #expect(serialized.contains("ORG:Tech Corp;Engineering;Software"))
     #expect(serialized.contains("BDAY:1990-05-15"))
     #expect(serialized.contains("GENDER:M"))
     #expect(serialized.contains("NOTE:Great colleague"))

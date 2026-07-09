@@ -131,7 +131,7 @@ public struct VCardSerializer: Sendable {
         }
 
         // Don't escape values for structured properties like N and ADR
-        if property.name == VCardPropertyName.name || property.name == VCardPropertyName.address {
+        if property.name == VCardPropertyName.name || property.name == VCardPropertyName.address || property.name == VCardPropertyName.organization {
             line += ":\(property.value)"
         } else {
             line += ":\(VCardFormatter.escapeText(property.value))"
@@ -238,7 +238,7 @@ public struct VCardSerializer: Sendable {
         }
 
         // Don't escape values for structured properties like N and ADR
-        if property.name == VCardPropertyName.name || property.name == VCardPropertyName.address {
+        if property.name == VCardPropertyName.name || property.name == VCardPropertyName.address || property.name == VCardPropertyName.organization {
             line += ":\(property.value)"
         } else {
             line += ":\(VCardFormatter.escapeText(property.value))"
